@@ -2,6 +2,7 @@ import requests
 import pyodbc
 from datetime import datetime
 import sys
+import pyodbc
 
 # --- CONFIGURAÇÕES ---
 # Pega a data de HOJE do sistema
