@@ -1,0 +1,74 @@
+
+VAR vValor = [$ Faturamento]
+
+RETURN
+"""" &
+SWITCH(
+    TRUE(),
+    vValor >= 1000000000, FORMAT(vValor, "#,,,. Bi"),
+    vValor >= 1000000, FORMAT(vValor, "#,,. 0 Mi"),
+    vValor >= 1000, FORMAT(vValor, "#,. K"),
+    FORMAT(vValor, "R$ #")
+)
+& """"
+--------------------------------------------------------------------------------
+Rotulo de Base = 
+
+IF([Realizado x Previsto] > 0,
+[Total Realizado], 
+[Total Previsto]
+)
+-------------------------------------------------------------------------------
+#,0,.  - tons
+
+#D64550
+
+#57CC99
+
+#51627F
+
+#A0D1FF
+
+#3A6FF9
+
+#2E335E 
+
+#E8EB47
+
+#D00000
+-------------------------------------------------------------------------------
+% Diferença Total R$ = FORMAT(
+    [LM total R$],
+    " ▲ + 0.0% vs mês anterior ;
+      ▼ - 0.0% vs mês anterior")
+-------------------------------------------------------------------------------
+LM total R$ = 
+VAR vMesAtual = [Total R$]
+
+VAR vMesAnterior = CALCULATE(
+    [Total R$],
+    PREVIOUSMONTH(dCalendario[Data])
+)
+VAR vPorcentagem = DIVIDE(
+    vMesAtual - 
+    vMesAnterior, vMesAnterior,
+    0)
+
+    RETURN
+    vPorcentagem
+------------------------------------------------------------------------------
+VAR vValor = [$ Faturamento]
+var vFaturamento = 
+SWITCH(
+    TRUE(),
+    vValor >= 1000000000, FORMAT(vValor, "R$#,0,,,.00 Bi"),
+    vValor >= 1000000, FORMAT(vValor, "R$#,0,,.00 Mi"),
+    vValor >= 1000, FORMAT(vValor, "r$#,0,.00 K"),
+    FORMAT(vValor, "R$#")
+)
+------------------------------------------------------------------------------
+
+(Date.StartOfWeek([Data])-Date.StartOfWeek(DateTime.Date(DateTime.LocalNow())))/7
+RETURN
+vFaturamento
+-------------------------------------------------------------------------------
