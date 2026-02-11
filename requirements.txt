@@ -1,3 +1,8 @@
-pyodbc
-pandas
 streamlit
+pandas
+pyodbc
+requests
+folium
+streamlit-folium
+geopy
+openpyxl
