@@ -3,7 +3,7 @@ import pandas as pd
 import pyodbc
 import plotly.graph_objects as go
 import holidays
-from datetime import datetime, timedelta  # Adicionado datetime aqui
+from datetime import datetime, timedelta
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Relatório Fechamento Dólar", layout="wide")
@@ -63,18 +63,14 @@ mask_feriados = ~df_clean['DataCotacao'].apply(lambda x: x in feriados_br)
 df_clean = df_clean[mask_feriados]
 
 # --- LÓGICA DINÂMICA D-1 ---
-# Pegamos a data de hoje (meia-noite)
 hoje = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-
-# Filtramos o DataFrame para conter apenas datas ANTERIORES a hoje
 df = df_clean[df_clean['DataCotacao'] < hoje].copy()
 
-# O último registro agora é obrigatoriamente o D-1 útil
 reg_ultimo = df.iloc[-1]     # D-1 útil
 reg_penultimo = df.iloc[-2]   # D-2 útil
 data_ref = reg_ultimo['DataCotacao']
 
-# --- CÁLCULOS KPI ---
+# --- CÁLCULOS KPI (FECHAMENTO D-1) ---
 # Venda
 venda_atual = reg_ultimo['ValorVenda']
 venda_anterior = reg_penultimo['ValorVenda']
@@ -85,12 +81,22 @@ compra_atual = reg_ultimo['ValorCompra']
 compra_anterior = reg_penultimo['ValorCompra']
 delta_compra = ((compra_atual - compra_anterior) / compra_anterior) * 100
 
-# Médias
-df['MediaMovel_30d'] = df['ValorVenda'].rolling(window=30).mean()
+# --- CÁLCULOS KPI (MÉDIAS DO ANO 2026) ---
+df_ano = df[df['DataCotacao'].dt.year == data_ref.year].copy()
 
-# --- PREPARAÇÃO DADOS VISUAIS ---
+media_ano_compra = df_ano['ValorCompra'].mean()
+media_ano_venda = df_ano['ValorVenda'].mean()
+max_ano = df_ano['ValorVenda'].max()
+min_ano = df_ano['ValorVenda'].min()
+
+# --- PREPARAÇÃO DADOS VISUAIS (RECORTES 10 DIAS) ---
 df_recorte = df.iloc[-11:].copy()
 df_recorte['DataStr'] = df_recorte['DataCotacao'].dt.strftime('%d/%m')
+
+# Cálculo da média diária para o gráfico
+df_recorte['MediaDia'] = (df_recorte['ValorCompra'] +
+                          df_recorte['ValorVenda']) / 2
+
 df_tabela = df_recorte.sort_values(by='DataCotacao', ascending=False).copy()
 df_tabela['Variação (%)'] = df_tabela['ValorVenda'].pct_change(-1) * 100
 df_tabela_final = df_tabela.head(10)
@@ -112,20 +118,23 @@ styler_tabela = df_view.style.applymap(estilo_variacao, subset=['Variação (%)'
 
 df_grafico = df_recorte.iloc[1:].copy()
 
+# Média constante do período (para a linha tracejada no gráfico)
+media_periodo_constante = df_grafico['MediaDia'].mean()
+
 # --- LAYOUT DASHBOARD ---
-# O título agora acompanha a data de referência calculada (D-1)
 st.title(f"💵 Fechamento Dólar (PTAX) - {data_ref.strftime('%d/%m/%Y')}")
 
 # 1. CARDS
-col1, col2, col3, col4, _ = st.columns([1, 1, 1, 1, 0.5])
+col1, col2, col3, col4, col5, col6 = st.columns(6)
+
 col1.metric("Fechamento (Compra)",
             f"R$ {compra_atual:.4f}", f"{delta_compra:.2f}%")
 col2.metric("Fechamento (Venda)",
             f"R$ {venda_atual:.4f}", f"{delta_venda:.2f}%")
-col3.metric("Máxima Ano",
-            f"R$ {df[df['DataCotacao'].dt.year == data_ref.year]['ValorVenda'].max():.4f}")
-col4.metric("Mínima Ano",
-            f"R$ {df[df['DataCotacao'].dt.year == data_ref.year]['ValorVenda'].min():.4f}")
+col3.metric("Média Compra (Ano)", f"R$ {media_ano_compra:.4f}")
+col4.metric("Média Venda (Ano)", f"R$ {media_ano_venda:.4f}")
+col5.metric("Máxima Ano", f"R$ {max_ano:.4f}")
+col6.metric("Mínima Ano", f"R$ {min_ano:.4f}")
 
 st.markdown("---")
 
@@ -138,23 +147,37 @@ with col_esq:
                  height=380, hide_index=True)
 
 with col_dir:
-    st.subheader("📈 Tendência")
+    st.subheader("📈 Tendência (Média Geral)")
     fig = go.Figure()
+
+    # Linha principal: Média do Dia
     fig.add_trace(go.Scatter(
-        x=df_grafico['DataStr'], y=df_grafico['ValorVenda'],
+        x=df_grafico['DataStr'], y=df_grafico['MediaDia'],
         mode='lines+markers+text',
-        text=df_grafico['ValorVenda'].apply(lambda x: f"{x:.3f}"),
-        textposition="top center", name='Venda',
+        text=df_grafico['MediaDia'].apply(lambda x: f"{x:.3f}"),
+        textposition="top center", name='Média Dia',
+        textfont=dict(size=15),  # AUMENTO DA FONTE DOS VALORES
         line=dict(color='#1f77b4', width=3)
     ))
+
+    # Linha secundária: Média Constante do Período
     fig.add_trace(go.Scatter(
-        x=df_grafico['DataStr'], y=df_grafico['MediaMovel_30d'],
-        mode='lines', name='Média 30d',
+        x=df_grafico['DataStr'],
+        y=[media_periodo_constante] * len(df_grafico),
+        mode='lines', name='Média Período',
         line=dict(color='#ff7f0e', width=2, dash='dot')
     ))
+
     fig.update_layout(
         margin=dict(l=10, r=10, t=30, b=10), height=380,
         template="plotly_white", showlegend=False,
-        xaxis=dict(type='category', tickmode='linear')
+        xaxis=dict(
+            type='category',
+            tickmode='linear',
+            tickfont=dict(size=14)  # AUMENTO DA FONTE DAS DATAS
+        ),
+        yaxis=dict(
+            tickfont=dict(size=12)  # Aumento sutil do eixo Y caso apareça
+        )
     )
     st.plotly_chart(fig, use_container_width=True)
