@@ -84,8 +84,8 @@ def tirar_print():
             ChromeDriverManager().install()), options=chrome_options)
         driver.get(URL_DASHBOARD)
 
-        print("⏳ Aguardando renderização (30s)...")
-        time.sleep(30)
+        print("⏳ Aguardando renderização (50s)...")
+        time.sleep(50)
 
         driver.save_screenshot(caminho_completo)
         print(f"✅ Print salvo em: {caminho_completo}")
