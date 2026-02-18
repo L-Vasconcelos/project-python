@@ -29,7 +29,7 @@ PASTA_HISTORICO = r"C:\Users\lsilva\OneDrive\Arquivos\Python\historico_print_pta
 
 # --- CONFIGURAÇÕES DE E-MAIL ---
 EMAIL_REMETENTE = "bi@mtcs.com.br"
-EMAIL_DESTINATARIO = "bi@mtcs.com.br, ti@mtcs.com.br, leonardo@mtcs.com.br, tesouraria@mtcs.com.br, adm@mtcs.com.br"
+EMAIL_DESTINATARIO = "bi@mtcs.com.br"
 
 # ATENÇÃO: Se você renomeou no Windows para SENHA_EMAIL, use assim.
 # Se deixou como bi@mtcs.com.br, altere dentro do getenv()
