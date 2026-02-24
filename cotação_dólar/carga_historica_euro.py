@@ -4,7 +4,7 @@ from datetime import datetime
 
 # --- CONFIGURAÇÕES ---
 # Formato Mês-Dia-Ano (MM-DD-AAAA)
-data_inicio = '02-23-2025' 
+data_inicio = '02-23-2025'
 data_fim = '02-23-2026'
 
 # URL específica para PERÍODO de OUTRAS MOEDAS (Euro = EUR)
@@ -21,6 +21,7 @@ dados_conexao = (
     "Database=Financeiro;"
     "Trusted_Connection=yes;"
 )
+
 
 def realizar_carga_historica_euro():
     print("--- Iniciando Carga Histórica do EURO ---")
@@ -66,7 +67,8 @@ def realizar_carga_historica_euro():
             # Formata a data para o padrão do SQL
             data_formatada = data_str.split(' ')[0]
 
-            cursor.execute(query, data_formatada, data_formatada, valor_compra, valor_venda)
+            cursor.execute(query, data_formatada, data_formatada,
+                           valor_compra, valor_venda)
             contador_inseridos += 1
 
         conn.commit()
@@ -78,6 +80,7 @@ def realizar_carga_historica_euro():
     finally:
         if 'conn' in locals():
             conn.close()
+
 
 if __name__ == "__main__":
     realizar_carga_historica_euro()
