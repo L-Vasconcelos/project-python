@@ -4,14 +4,15 @@ from datetime import datetime
 
 # --- CONFIGURAÇÕES ---
 # Formato Mês-Dia-Ano (MM-DD-AAAA)
-data_inicio = '02-23-2025'
+data_inicio = '01-01-2025'
 data_fim = '02-23-2026'
 
-# URL específica para PERÍODO de OUTRAS MOEDAS (Euro = EUR)
+# URL BLINDADA: Traz apenas os boletins onde o tipo é exatamente 'Fechamento' no período selecionado
 url_api = (
     f"https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/"
     f"CotacaoMoedaPeriodo(moeda=@moeda,dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)?"
-    f"@moeda='EUR'&@dataInicial='{data_inicio}'&@dataFinalCotacao='{data_fim}'&$top=10000&$format=json"
+    f"@moeda='EUR'&@dataInicial='{data_inicio}'&@dataFinalCotacao='{data_fim}'"
+    f"&$filter=tipoBoletim eq 'Fechamento'&$top=10000&$format=json"
 )
 
 # Conexão SQL Server (Seu Servidor Atual)
@@ -22,9 +23,8 @@ dados_conexao = (
     "Trusted_Connection=yes;"
 )
 
-
 def realizar_carga_historica_euro():
-    print("--- Iniciando Carga Histórica do EURO ---")
+    print("--- Iniciando Carga Histórica do EURO (Apenas Fechamento PTAX) ---")
     print("Baixando dados do Banco Central... aguarde.")
 
     try:
@@ -34,7 +34,7 @@ def realizar_carga_historica_euro():
         lista_cotacoes = dados['value']
 
         total = len(lista_cotacoes)
-        print(f"Foram encontrados {total} registros para importar.")
+        print(f"Foram encontrados {total} registros de fechamento para importar.")
 
     except Exception as e:
         print(f"Erro ao baixar dados: {e}")
@@ -73,14 +73,13 @@ def realizar_carga_historica_euro():
 
         conn.commit()
         print(f"--- Sucesso! Processo finalizado. ---")
-        print(f"Registros processados: {total}")
+        print(f"Registros processados e verificados: {total}")
 
     except Exception as e:
         print(f"Erro no Banco de Dados: {e}")
     finally:
         if 'conn' in locals():
             conn.close()
-
 
 if __name__ == "__main__":
     realizar_carga_historica_euro()
