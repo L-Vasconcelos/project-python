@@ -17,19 +17,15 @@ from webdriver_manager.chrome import ChromeDriverManager
 # --- CONFIGURAÇÕES DE CAMINHOS ---
 PASTA_DO_SCRIPT = os.path.dirname(os.path.abspath(__file__))
 NOME_ARQUIVO_DASHBOARD = "enviar_relatorio_dolar.py"
-CAMINHO_COMPLETO_DASHBOARD = os.path.join(
-    PASTA_DO_SCRIPT, NOME_ARQUIVO_DASHBOARD)
+CAMINHO_COMPLETO_DASHBOARD = os.path.join(PASTA_DO_SCRIPT, NOME_ARQUIVO_DASHBOARD)
 
 # Configurações de Rede
 PORTA_STREAMLIT = "8501"
 URL_DASHBOARD = f"http://127.0.0.1:{PORTA_STREAMLIT}"
 
-# Pasta onde os prints serão guardados
-PASTA_HISTORICO = r"C:\Users\lsilva\OneDrive\Arquivos\Python\historico_print_ptax"
-
 # --- CONFIGURAÇÕES DE E-MAIL ---
 EMAIL_REMETENTE = "bi@mtcs.com.br"
-EMAIL_DESTINATARIO = "bi@mtcs.com.br, ti@mtcs.com.br, leonardo@mtcs.com.br, tesouraria@mtcs.com.br"
+EMAIL_DESTINATARIO = "bi@mtcs.com.br"
 
 # ATENÇÃO: Se você renomeou no Windows para SENHA_EMAIL, use assim.
 # Se deixou como bi@mtcs.com.br, altere dentro do getenv()
@@ -61,36 +57,30 @@ def iniciar_streamlit():
     return processo
 
 
-def tirar_print():
-    """Abre navegador e tira print."""
+def tirar_print_memoria():
+    """Abre navegador, tira print e guarda apenas na memória (sem salvar arquivo)."""
     print("📸 Preparando navegador...")
-
-    if not os.path.exists(PASTA_HISTORICO):
-        os.makedirs(PASTA_HISTORICO)
-
-    data_hoje = datetime.now().strftime('%Y-%m-%d')
-    nome_arquivo = f"fechamento_{data_hoje}.png"
-    caminho_completo = os.path.join(PASTA_HISTORICO, nome_arquivo)
 
     chrome_options = Options()
     chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--window-size=1920,1080")
+    chrome_options.add_argument("--window-size=1920,2200")
     chrome_options.add_argument("--hide-scrollbars")
     chrome_options.add_argument("--log-level=3")
 
     driver = None
     try:
-        driver = webdriver.Chrome(service=Service(
-            ChromeDriverManager().install()), options=chrome_options)
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
         driver.get(URL_DASHBOARD)
 
         print("⏳ Aguardando renderização (60s)...")
         time.sleep(60)
 
-        driver.save_screenshot(caminho_completo)
-        print(f"✅ Print salvo em: {caminho_completo}")
+        # CAPTURA A IMAGEM DIRETO PARA A MEMÓRIA (FORMATO BINÁRIO)
+        img_binaria = driver.get_screenshot_as_png()
+        print("✅ Print capturado com sucesso na memória!")
+        
         driver.quit()
-        return caminho_completo
+        return img_binaria
 
     except Exception as e:
         print(f"❌ Erro ao tirar print: {e}")
@@ -99,22 +89,19 @@ def tirar_print():
         return None
 
 
-def enviar_email(caminho_imagem):
-    """Envia o e-mail com a imagem EMBUTIDA NO CORPO (HTML)."""
+def enviar_email(img_data):
+    """Envia o e-mail recebendo a imagem direto da memória."""
     print("📧 Preparando envio (Imagem Inline)...")
 
     if not SENHA_EMAIL:
         print("❌ ERRO CRÍTICO: Variável de senha não encontrada.")
         return
 
-    # 1. Cria o objeto da mensagem como 'related' (necessário para imagens inline)
     msg = MIMEMultipart('related')
-    msg['Subject'] = f"Fechamento Dólar (PTAX) (D-1) - {datetime.now().strftime('%d/%m/%Y')}"
+    msg['Subject'] = f"Fechamento Câmbio (Dólar/Euro) (D-1) - {datetime.now().strftime('%d/%m/%Y')}"
     msg['From'] = EMAIL_REMETENTE
     msg['To'] = EMAIL_DESTINATARIO
 
-    # 2. Cria o corpo do e-mail em HTML
-    # Note a tag <img src="cid:imagem_dolar">. É ela que puxa a imagem.
     html_body = """
     <html>
       <body>
@@ -123,43 +110,34 @@ def enviar_email(caminho_imagem):
             Segue abaixo o painel de fechamento atualizado (D-1):
         </p>
         <br>
-        <img src="cid:imagem_dolar" alt="Relatório Dólar" style="max-width: 100%; height: auto; border: 1px solid #ddd;">
+        <img src="cid:imagem_dolar" alt="Relatório Câmbio" style="max-width: 100%; height: auto; border: 1px solid #ddd;">
         <br><br>
-        <p style="font-size: 12px; color: #888;">Luís Fellipe Vasconcelos
-Data Analytics
-Meridional Oleochemicals & Ingredients
-Phone: +55 (43) 3315-1289
-Mobile/Whatsapp: +55 (43) 99172-7932
-Skype: Bi@mtcs.com
+        <p style="font-size: 12px; color: #888;">Luís Fellipe Vasconcelos<br>
+Data Analytics<br>
+Meridional Oleochemicals & Ingredients<br>
+Phone: +55 (43) 3315-1289<br>
+Mobile/Whatsapp: +55 (43) 99172-7932<br>
+Skype: Bi@mtcs.com<br>
 Av. Maringá, 1880, Londrina PR, Brasil, 86060-000
 </p>
       </body>
     </html>
     """
-    # Anexa o HTML na mensagem
     msg_html = MIMEText(html_body, 'html')
     msg.attach(msg_html)
 
     try:
-        # 3. Carrega e Prepara a Imagem
-        with open(caminho_imagem, 'rb') as f:
-            img_data = f.read()
-
+        # Usa a variável img_data (que já está na memória) em vez de ler de um arquivo
         image = MIMEImage(img_data)
-
-        # O SEGREDINHO: Adiciona o cabeçalho Content-ID
-        # Esse ID '<imagem_dolar>' tem que ser IGUAL ao usado no HTML src="cid:..."
         image.add_header('Content-ID', '<imagem_dolar>')
-        image.add_header('Content-Disposition', 'inline',
-                         filename=os.path.basename(caminho_imagem))
-
+        image.add_header('Content-Disposition', 'inline', filename="relatorio_cambio.png")
         msg.attach(image)
 
-    except FileNotFoundError:
-        print(f"❌ Imagem não encontrada.")
+    except Exception as e:
+        print(f"❌ Erro ao processar imagem para e-mail: {e}")
         return
 
-    # 4. Envio
+    # Envio
     try:
         server = smtplib.SMTP('smtp.office365.com', 587)
         server.starttls()
@@ -176,9 +154,11 @@ def main():
     try:
         processo = iniciar_streamlit()
         if processo:
-            caminho_da_foto = tirar_print()
-            if caminho_da_foto:
-                enviar_email(caminho_da_foto)
+            # Pega a imagem direto na memória
+            dados_da_imagem = tirar_print_memoria()
+            if dados_da_imagem:
+                # Envia a imagem passando os dados binários
+                enviar_email(dados_da_imagem)
         else:
             print("⚠️ Erro ao iniciar Streamlit.")
 
