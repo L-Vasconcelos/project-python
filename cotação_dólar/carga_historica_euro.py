@@ -4,7 +4,7 @@ from datetime import datetime
 
 # --- CONFIGURAÇÕES ---
 # Formato Mês-Dia-Ano (MM-DD-AAAA)
-data_inicio = '01-01-2025' 
+data_inicio = '02-23-2025' 
 data_fim = '02-23-2026'
 
 # URL específica para PERÍODO de OUTRAS MOEDAS (Euro = EUR)
