@@ -17,7 +17,8 @@ from webdriver_manager.chrome import ChromeDriverManager
 # --- CONFIGURAÇÕES DE CAMINHOS ---
 PASTA_DO_SCRIPT = os.path.dirname(os.path.abspath(__file__))
 NOME_ARQUIVO_DASHBOARD = "enviar_relatorio_dolar.py"
-CAMINHO_COMPLETO_DASHBOARD = os.path.join(PASTA_DO_SCRIPT, NOME_ARQUIVO_DASHBOARD)
+CAMINHO_COMPLETO_DASHBOARD = os.path.join(
+    PASTA_DO_SCRIPT, NOME_ARQUIVO_DASHBOARD)
 
 # Configurações de Rede
 PORTA_STREAMLIT = "8501"
@@ -69,7 +70,8 @@ def tirar_print_memoria():
 
     driver = None
     try:
-        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+        driver = webdriver.Chrome(service=Service(
+            ChromeDriverManager().install()), options=chrome_options)
         driver.get(URL_DASHBOARD)
 
         print("⏳ Aguardando renderização (60s)...")
@@ -78,7 +80,7 @@ def tirar_print_memoria():
         # CAPTURA A IMAGEM DIRETO PARA A MEMÓRIA (FORMATO BINÁRIO)
         img_binaria = driver.get_screenshot_as_png()
         print("✅ Print capturado com sucesso na memória!")
-        
+
         driver.quit()
         return img_binaria
 
@@ -130,7 +132,8 @@ Av. Maringá, 1880, Londrina PR, Brasil, 86060-000
         # Usa a variável img_data (que já está na memória) em vez de ler de um arquivo
         image = MIMEImage(img_data)
         image.add_header('Content-ID', '<imagem_dolar>')
-        image.add_header('Content-Disposition', 'inline', filename="relatorio_cambio.png")
+        image.add_header('Content-Disposition', 'inline',
+                         filename="relatorio_cambio.png")
         msg.attach(image)
 
     except Exception as e:
