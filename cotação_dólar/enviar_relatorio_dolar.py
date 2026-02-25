@@ -101,13 +101,15 @@ def gerar_painel_moeda(df_raw, nome_moeda, icone):
     df_tabela['Variação (%)'] = df_tabela['ValorVenda'].pct_change(-1) * 100
     df_tabela_final = df_tabela.head(10)
 
-    # NOVIDADE: Adicionada a coluna 'MediaDia' na seleção e renomeada para a visualização
-    df_view = df_tabela_final[['DataCotacao', 'ValorCompra', 'ValorVenda', 'MediaDia', 'Variação (%)']].copy()
+    # NOVIDADE: Ordem alterada! MediaDia logo após DataCotacao
+    df_view = df_tabela_final[['DataCotacao', 'MediaDia', 'ValorCompra', 'ValorVenda', 'Variação (%)']].copy()
     df_view.rename(columns={'MediaDia': 'Média (C/V)'}, inplace=True)
     df_view['DataCotacao'] = df_view['DataCotacao'].dt.strftime('%d/%m/%Y')
 
-    # NOVIDADE: Adicionado o formato R$ para a nova coluna de Média
-    styler_tabela = df_view.style.map(estilo_variacao, subset=['Variação (%)'])\
+    # NOVIDADE: Adicionada a regra de cor Amarela para a coluna 'Média (C/V)'
+    styler_tabela = df_view.style\
+        .map(estilo_variacao, subset=['Variação (%)'])\
+        .map(lambda _: 'color: #FFD700; font-weight: bold', subset=['Média (C/V)'])\
         .format({'ValorCompra': 'R$ {:.4f}', 'ValorVenda': 'R$ {:.4f}', 'Média (C/V)': 'R$ {:.4f}', 'Variação (%)': '{:+.2f}%'})
 
     df_grafico = df_recorte.iloc[1:].copy()
