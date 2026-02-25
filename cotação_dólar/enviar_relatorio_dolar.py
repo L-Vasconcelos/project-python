@@ -101,11 +101,14 @@ def gerar_painel_moeda(df_raw, nome_moeda, icone):
     df_tabela['Variação (%)'] = df_tabela['ValorVenda'].pct_change(-1) * 100
     df_tabela_final = df_tabela.head(10)
 
-    df_view = df_tabela_final[['DataCotacao', 'ValorCompra', 'ValorVenda', 'Variação (%)']].copy()
+    # NOVIDADE: Adicionada a coluna 'MediaDia' na seleção e renomeada para a visualização
+    df_view = df_tabela_final[['DataCotacao', 'ValorCompra', 'ValorVenda', 'MediaDia', 'Variação (%)']].copy()
+    df_view.rename(columns={'MediaDia': 'Média (C/V)'}, inplace=True)
     df_view['DataCotacao'] = df_view['DataCotacao'].dt.strftime('%d/%m/%Y')
 
+    # NOVIDADE: Adicionado o formato R$ para a nova coluna de Média
     styler_tabela = df_view.style.map(estilo_variacao, subset=['Variação (%)'])\
-        .format({'ValorCompra': 'R$ {:.4f}', 'ValorVenda': 'R$ {:.4f}', 'Variação (%)': '{:+.2f}%'})
+        .format({'ValorCompra': 'R$ {:.4f}', 'ValorVenda': 'R$ {:.4f}', 'Média (C/V)': 'R$ {:.4f}', 'Variação (%)': '{:+.2f}%'})
 
     df_grafico = df_recorte.iloc[1:].copy()
     media_periodo_constante = df_grafico['MediaDia'].mean()
