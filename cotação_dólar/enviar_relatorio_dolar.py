@@ -30,7 +30,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- FUNÇÃO DE CONEXÃO E CARGA ---
 @st.cache_data(ttl=3600)
 def carregar_dados(nome_tabela):
     dados_conexao = (
@@ -41,7 +40,6 @@ def carregar_dados(nome_tabela):
     )
     try:
         conn = pyodbc.connect(dados_conexao)
-        # Traz dados dinamicamente da tabela que pedirmos (Dólar ou Euro)
         query = f"SELECT DataCotacao, ValorCompra, ValorVenda FROM {nome_tabela} ORDER BY DataCotacao ASC"
         df = pd.read_sql(query, conn)
         conn.close()
@@ -57,27 +55,23 @@ def estilo_variacao(val):
     color = '#4CAF50' if val > 0 else '#FF4B4B' if val < 0 else 'white'
     return f'color: {color}; font-weight: bold'
 
-# --- A MÁGICA: FUNÇÃO QUE GERA O BLOCO VISUAL ---
 def gerar_painel_moeda(df_raw, nome_moeda, icone):
     if df_raw.empty:
         st.warning(f"Sem dados para {nome_moeda}")
         return
 
-    # --- LIMPEZA (SÁBADOS, DOMINGOS E FERIADOS) ---
     df_clean = df_raw[df_raw['DataCotacao'].dt.dayofweek < 5].copy()
     feriados_br = holidays.BR()
     mask_feriados = ~df_clean['DataCotacao'].apply(lambda x: x in feriados_br)
     df_clean = df_clean[mask_feriados]
 
-    # --- LÓGICA DINÂMICA D-1 ---
     hoje = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     df = df_clean[df_clean['DataCotacao'] < hoje].copy()
 
-    reg_ultimo = df.iloc[-1]     # D-1 útil
-    reg_penultimo = df.iloc[-2]   # D-2 útil
+    reg_ultimo = df.iloc[-1]
+    reg_penultimo = df.iloc[-2]
     data_ref = reg_ultimo['DataCotacao']
 
-    # --- CÁLCULOS KPI ---
     venda_atual = reg_ultimo['ValorVenda']
     venda_anterior = reg_penultimo['ValorVenda']
     delta_venda = ((venda_atual - venda_anterior) / venda_anterior) * 100
@@ -92,7 +86,6 @@ def gerar_painel_moeda(df_raw, nome_moeda, icone):
     max_ano = df_ano['ValorVenda'].max()
     min_ano = df_ano['ValorVenda'].min()
 
-    # --- PREPARAÇÃO DADOS VISUAIS ---
     df_recorte = df.iloc[-11:].copy()
     df_recorte['DataStr'] = df_recorte['DataCotacao'].dt.strftime('%d/%m')
     df_recorte['MediaDia'] = (df_recorte['ValorCompra'] + df_recorte['ValorVenda']) / 2
@@ -101,21 +94,19 @@ def gerar_painel_moeda(df_raw, nome_moeda, icone):
     df_tabela['Variação (%)'] = df_tabela['ValorVenda'].pct_change(-1) * 100
     df_tabela_final = df_tabela.head(10)
 
-    # NOVIDADE: Ordem alterada! MediaDia logo após DataCotacao
     df_view = df_tabela_final[['DataCotacao', 'MediaDia', 'ValorCompra', 'ValorVenda', 'Variação (%)']].copy()
     df_view.rename(columns={'MediaDia': 'Média (C/V)'}, inplace=True)
     df_view['DataCotacao'] = df_view['DataCotacao'].dt.strftime('%d/%m/%Y')
 
-    # NOVIDADE: Adicionada a regra de cor Amarela para a coluna 'Média (C/V)'
+    # CORREÇÃO AQUI: Usando applymap para garantir compatibilidade e não quebrar a página
     styler_tabela = df_view.style\
-        .map(estilo_variacao, subset=['Variação (%)'])\
-        .map(lambda _: 'color: #FFD700; font-weight: bold', subset=['Média (C/V)'])\
+        .applymap(estilo_variacao, subset=['Variação (%)'])\
+        .applymap(lambda _: 'color: #FFD700; font-weight: bold', subset=['Média (C/V)'])\
         .format({'ValorCompra': 'R$ {:.4f}', 'ValorVenda': 'R$ {:.4f}', 'Média (C/V)': 'R$ {:.4f}', 'Variação (%)': '{:+.2f}%'})
 
     df_grafico = df_recorte.iloc[1:].copy()
     media_periodo_constante = df_grafico['MediaDia'].mean()
 
-    # --- RENDERIZANDO NA TELA ---
     st.markdown(f"<h2>{icone} Fechamento {nome_moeda} (PTAX) - {data_ref.strftime('%d/%m/%Y')}</h2>", unsafe_allow_html=True)
     st.markdown("---")
 
@@ -155,17 +146,11 @@ def gerar_painel_moeda(df_raw, nome_moeda, icone):
         )
         st.plotly_chart(fig, use_container_width=True)
 
-# ==========================================
-# EXECUÇÃO PRINCIPAL: CHAMA AS DUAS MOEDAS
-# ==========================================
 st.title("📊 Relatório Executivo de Câmbio")
-
-# 1. Traz e desenha o Dólar
 df_dolar = carregar_dados('CotacaoDolar')
 gerar_painel_moeda(df_dolar, "Dólar", "💵")
 
-st.markdown("<br><br>", unsafe_allow_html=True) # Espaçamento entre os dois painéis
+st.markdown("<br><br>", unsafe_allow_html=True) 
 
-# 2. Traz e desenha o Euro
 df_euro = carregar_dados('CotacaoEuro')
 gerar_painel_moeda(df_euro, "Euro", "💶")

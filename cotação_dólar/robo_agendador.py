@@ -59,7 +59,7 @@ def iniciar_streamlit():
 
 
 def tirar_print_memoria():
-    """Abre navegador, tira print e guarda apenas na memória (sem salvar arquivo)."""
+    """Abre navegador, força a rolagem para carregar gráficos e tira print."""
     print("📸 Preparando navegador...")
 
     chrome_options = Options()
@@ -74,8 +74,15 @@ def tirar_print_memoria():
             ChromeDriverManager().install()), options=chrome_options)
         driver.get(URL_DASHBOARD)
 
-        print("⏳ Aguardando renderização (60s)...")
-        time.sleep(60)
+        print("⏳ Aguardando montagem inicial (30s)...")
+        time.sleep(30)
+
+        # O SEGREDO AQUI: Rolar a tela para baixo e para cima para forçar o JavaScript a desenhar os gráficos
+        print("🔄 Simulando rolagem de tela para forçar carregamento dos gráficos...")
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        time.sleep(10) # Dá tempo para os gráficos desenharem
+        driver.execute_script("window.scrollTo(0, 0);")
+        time.sleep(5)  # Volta pro topo para estabilizar a foto
 
         # CAPTURA A IMAGEM DIRETO PARA A MEMÓRIA (FORMATO BINÁRIO)
         img_binaria = driver.get_screenshot_as_png()
