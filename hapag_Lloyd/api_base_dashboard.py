@@ -15,11 +15,12 @@ from streamlit_autorefresh import st_autorefresh
 # --- CONFIGURAÇÕES GERAIS ---
 st.set_page_config(page_title="Monitoramento Meridional TCS", layout="wide")
 
+# Credenciais via Secrets do Streamlit Cloud
 CLIENT_ID = os.getenv('client_id')
 CLIENT_SECRET = os.getenv('client_secret')
 
 if not CLIENT_ID or not CLIENT_SECRET:
-    st.error("ERRO: Credenciais da API não encontradas nos Secrets do Streamlit.")
+    st.error("ERRO: Credenciais da API não encontradas nos Secrets.")
     st.stop()
 
 URL_API = "https://api.hlag.com/hlag/external/v2/events"
@@ -30,7 +31,8 @@ MAPA_STATUS = {
     "GTOUT": "Gate-out Terminal", "RECE": "Carga Recebida", "DEPA": "Navio Zarpou"
 }
 
-# --- FUNÇÕES ---
+# --- FUNÇÕES DE APOIO ---
+
 
 def formatar_data_br(data_iso):
     if not data_iso or data_iso == "---":
@@ -41,21 +43,25 @@ def formatar_data_br(data_iso):
     except:
         return data_iso
 
+
 def carregar_cache():
     if os.path.exists(ARQUIVO_CACHE):
         try:
             with open(ARQUIVO_CACHE, 'r') as f:
                 return json.load(f)
-        except: return {}
+        except:
+            return {}
     return {}
+
 
 def salvar_cache(dados):
     with open(ARQUIVO_CACHE, 'w') as f:
         json.dump(dados, f)
 
+
 @st.cache_data(ttl=86400)
 def buscar_coordenadas(nome):
-    geolocator = Nominatim(user_agent="meridional_logistics_v5")
+    geolocator = Nominatim(user_agent="meridional_tracker_v6")
     try:
         nome_limpo = nome.split('(')[0].strip()
         location = geolocator.geocode(nome_limpo, timeout=10)
@@ -66,6 +72,7 @@ def buscar_coordenadas(nome):
     except:
         return [None, None]
 
+
 def consultar_hlag(booking, cache):
     agora = datetime.now()
     if str(booking) in cache:
@@ -73,55 +80,67 @@ def consultar_hlag(booking, cache):
         if agora - datetime.strptime(info['timestamp'], '%Y-%m-%d %H:%M:%S') < timedelta(hours=12):
             return info['dados'], True, "✅ (Cache)"
 
-    headers = {"X-IBM-Client-ID": CLIENT_ID, "X-IBM-Client-Secret": CLIENT_SECRET, "Accept": "application/json"}
+    headers = {"X-IBM-Client-ID": CLIENT_ID,
+               "X-IBM-Client-Secret": CLIENT_SECRET, "Accept": "application/json"}
     try:
-        response = requests.get(URL_API, headers=headers, params={"carrierBookingReference": str(booking)}, timeout=25)
+        response = requests.get(URL_API, headers=headers, params={
+                                "carrierBookingReference": str(booking)}, timeout=25)
         if response.status_code == 200:
             dados = response.json()
-            cache[str(booking)] = {'dados': dados, 'timestamp': agora.strftime('%Y-%m-%d %H:%M:%S')}
+            cache[str(booking)] = {
+                'dados': dados, 'timestamp': agora.strftime('%Y-%m-%d %H:%M:%S')}
             salvar_cache(cache)
             return dados, True, "✅ Ativo"
-        return None, False, f"Status {response.status_code}"
+        return None, False, f"Erro {response.status_code}"
     except:
         return None, False, "Erro Conexão"
 
-# --- INTERFACE E BARRA LATERAL ---
+# --- BUSCA AUTOMÁTICA DO ARQUIVO ---
+# Esta lógica busca o arquivo no GitHub mesmo que o nome tenha espaços extras
+
+
+def localizar_planilha():
+    arquivos = [f for f in os.listdir(
+        '.') if 'booking' in f.lower() and f.endswith('.xlsx')]
+    return arquivos[0] if arquivos else None
+
+
+CAMINHO_PLANILHA = localizar_planilha()
+
+# --- INTERFACE ---
 st.title("🚢 Painel de Monitoramento Logístico")
 
-with st.sidebar:
-    st.header("Configurações")
-    arquivo_upload = st.file_uploader("Subir planilha Booking List (.xlsx)", type=["xlsx"])
-    refresh_ativo = st.toggle("Atualização Automática (60 min)", value=True)
-    if st.button("Limpar Cache e Reiniciar"):
-        st.cache_data.clear()
-        if os.path.exists(ARQUIVO_CACHE): os.remove(ARQUIVO_CACHE)
-        st.rerun()
+c1, c2, c3, c4 = st.columns([3, 3, 2, 1.5])
 
-# Layout de Status
-c1, c2, c3 = st.columns([2, 2, 2])
 with c1:
-    if arquivo_upload: st.success("🟢 Planilha Carregada")
-    else: st.warning("🟡 Aguardando Planilha...")
+    if CAMINHO_PLANILHA:
+        st.success(f"🟢 PLANILHA: {CAMINHO_PLANILHA}")
+    else:
+        st.error("🔴 PLANILHA: Não encontrada no repositório GitHub.")
+
 with c2:
     st.success("🟢 API HLAG: Conectada")
+
 with c3:
+    refresh_ativo = st.toggle("Auto-Refresh (60 min)", value=True)
+
+with c4:
+    if st.button("🔄 Atualizar"):
+        st.cache_data.clear()
+        st.rerun()
     container_download = st.empty()
 
 if refresh_ativo:
     st_autorefresh(interval=3600000, key="refresh_global")
 
 # --- PROCESSAMENTO ---
-if arquivo_upload:
+if CAMINHO_PLANILHA:
     try:
-        df_base = pd.read_excel(arquivo_upload)
+        df_base = pd.read_excel(CAMINHO_PLANILHA)
         df_base.columns = df_base.columns.str.strip()
-        
-        col_booking = [c for c in df_base.columns if 'booking' in c.lower()]
-        if not col_booking:
-            st.error("Coluna 'Booking' não encontrada na planilha!")
-            st.stop()
-            
-        lista_bookings = df_base[col_booking[0]].dropna().unique()
+        col_booking = [c for c in df_base.columns if 'booking' in c.lower()][0]
+        lista_bookings = df_base[col_booking].dropna().unique()
+
         dados_tabela = []
         cache_local = carregar_cache()
         progresso = st.progress(0)
@@ -136,75 +155,84 @@ if arquivo_upload:
             }
 
             if sucesso and json_api:
-                eventos = sorted(json_api, key=lambda x: x.get('eventDateTime', ''))
-                # Lógica de extração de dados (mesma do anterior)
+                eventos = sorted(
+                    json_api, key=lambda x: x.get('eventDateTime', ''))
+                for ev in eventos:
+                    tc = ev.get('transportCall', {})
+                    if tc.get('vessel'):
+                        item["Transporte"] = tc['vessel'].get(
+                            'vesselName', '---')
+                        item["IMO"] = tc['vessel'].get(
+                            'vesselIMONumber', '---')
+                    if tc.get('carrierVoyageNumber'):
+                        item["Viagem"] = tc['carrierVoyageNumber']
+                    if ev.get('equipmentReference'):
+                        item["Container"] = ev['equipmentReference']
+
                 if eventos:
                     def extract(ev):
-                        loc = ev.get('eventLocation') or ev.get('transportCall', {}).get('location') or {}
-                        st_trad = MAPA_STATUS.get(ev.get('shipmentEventTypeCode'), ev.get('eventType', '---'))
+                        loc = ev.get('eventLocation') or ev.get(
+                            'transportCall', {}).get('location') or {}
+                        st_trad = MAPA_STATUS.get(
+                            ev.get('shipmentEventTypeCode'), ev.get('eventType', '---'))
                         return loc.get('locationName', 'Em Trânsito'), st_trad
 
                     item["Origem"], _ = extract(eventos[0])
                     item["Destino"], _ = extract(eventos[-1])
-                    item["Saída"] = formatar_data_br(eventos[0].get('eventDateTime'))
-                    item["Chegada"] = formatar_data_br(eventos[-1].get('eventDateTime'))
-                    
-                    # Pegar dados do container/navio do primeiro evento que tiver
-                    for ev in eventos:
-                        tc = ev.get('transportCall', {})
-                        if tc.get('vessel'):
-                            item["Transporte"] = tc['vessel'].get('vesselName', '---')
-                            item["IMO"] = tc['vessel'].get('vesselIMONumber', '---')
-                        if tc.get('carrierVoyageNumber'): item["Viagem"] = tc['carrierVoyageNumber']
-                        if ev.get('equipmentReference'): item["Container"] = ev['equipmentReference']
+                    item["Saída"] = formatar_data_br(
+                        eventos[0].get('eventDateTime'))
+                    item["Chegada"] = formatar_data_br(
+                        eventos[-1].get('eventDateTime'))
 
-                    reais = [e for e in eventos if e.get('eventClassifierCode') == 'ACT']
+                    reais = [e for e in eventos if e.get(
+                        'eventClassifierCode') == 'ACT']
                     if reais:
-                        item["Localização Atual"], item["Último Evento"] = extract(reais[-1])
+                        item["Localização Atual"], item["Último Evento"] = extract(
+                            reais[-1])
                     else:
                         item["Localização Atual"] = "Pré-Embarque"
 
-                    item["lat_o"], item["lon_o"] = buscar_coordenadas(item["Origem"])
-                    item["lat_d"], item["lon_d"] = buscar_coordenadas(item["Destino"])
+                    item["lat_o"], item["lon_o"] = buscar_coordenadas(
+                        item["Origem"])
+                    item["lat_d"], item["lon_d"] = buscar_coordenadas(
+                        item["Destino"])
 
             dados_tabela.append(item)
             progresso.progress((i + 1) / len(lista_bookings))
-            if "Ativo" in msg: time.sleep(1.2)
+            if "Ativo" in msg:
+                time.sleep(1.2)
 
         progresso.empty()
         df_final = pd.DataFrame(dados_tabela)
 
-        # Botão de Download
+        # Botão de Download (Para salvar de volta no seu SharePoint local)
         with container_download:
             buffer = io.BytesIO()
-            df_final.drop(columns=['lat_o', 'lon_o', 'lat_d', 'lon_d']).to_excel(buffer, index=False)
+            df_final.drop(columns=['lat_o', 'lon_o', 'lat_d', 'lon_d']).to_excel(
+                buffer, index=False)
             st.download_button(
-                label="📥 Baixar Excel Processado",
+                label="📥 Baixar Excel",
                 data=buffer.getvalue(),
-                file_name=f"tracking_meridional_{datetime.now().strftime('%d_%m')}.xlsx",
+                file_name="relatorio_rastreamento.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
 
         # --- MAPA ---
-        st.subheader("🗺️ Rota das Cargas")
+        st.subheader("🗺️ Localização das Cargas")
         m = folium.Map(location=[10, 0], zoom_start=2, tiles=None)
-        folium.TileLayer('CartoDB dark_matter', name="Dark", no_wrap=True, control=False).add_to(m)
-
+        folium.TileLayer('CartoDB dark_matter', name="Dark",
+                         no_wrap=True, control=False).add_to(m)
         df_mapa = df_final.dropna(subset=['lat_o', 'lon_o', 'lat_d', 'lon_d'])
         for _, r in df_mapa.iterrows():
-            AntPath(
-                locations=[[r['lat_o'], r['lon_o']], [r['lat_d'], r['lon_d']]],
-                color="#39FF14", weight=3, opacity=0.8,
-                tooltip=f"Booking: {r['Booking']}"
-            ).add_to(m)
-        st_folium(m, width="100%", height=450, key="mapa_v5")
+            AntPath(locations=[[r['lat_o'], r['lon_o']], [r['lat_d'], r['lon_d']]],
+                    color="#39FF14", weight=3, opacity=0.8).add_to(m)
+        st_folium(m, width="100%", height=450, key="mapa_final")
 
         # --- TABELA ---
-        st.subheader("📋 Relatório")
-        st.dataframe(df_final.drop(columns=['lat_o', 'lon_o', 'lat_d', 'lon_d']), use_container_width=True, hide_index=True)
+        st.subheader("📋 Relatório Completo")
+        st.dataframe(df_final.drop(columns=[
+                     'lat_o', 'lon_o', 'lat_d', 'lon_d']), use_container_width=True, hide_index=True)
 
     except Exception as e:
-        st.error(f"Erro ao processar: {e}")
-else:
-    st.info("💡 Por favor, carregue o arquivo .xlsx na barra lateral para iniciar o rastreamento.")
+        st.error(f"Erro no processamento: {e}")
