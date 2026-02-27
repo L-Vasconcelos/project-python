@@ -26,7 +26,7 @@ if not CLIENT_ID or not CLIENT_SECRET:
 URL_API = "https://api.hlag.com/hlag/external/v2/events"
 
 # AJUSTE PARA NUVEM: O arquivo deve estar no seu repositório GitHub
-CAMINHO_PLANILHA = "booking_list.xlsx"
+CAMINHO_PLANILHA = "booking _list.xlsx"
 ARQUIVO_CACHE = "cache_hlag_v_final.json"
 
 MAPA_STATUS = {
