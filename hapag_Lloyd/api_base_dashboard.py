@@ -20,7 +20,8 @@ CLIENT_ID = os.getenv('client_id')
 CLIENT_SECRET = os.getenv('client_secret')
 
 if not CLIENT_ID or not CLIENT_SECRET:
-    st.error("ERRO: Credenciais da API não encontradas nos Secrets.")
+    st.error(
+        "ERRO: Credenciais da API (client_id/secret) não encontradas nos Secrets do Streamlit.")
     st.stop()
 
 URL_API = "https://api.hlag.com/hlag/external/v2/events"
@@ -61,7 +62,7 @@ def salvar_cache(dados):
 
 @st.cache_data(ttl=86400)
 def buscar_coordenadas(nome):
-    geolocator = Nominatim(user_agent="meridional_tracker_v6")
+    geolocator = Nominatim(user_agent="meridional_tracker_v7_cloud")
     try:
         nome_limpo = nome.split('(')[0].strip()
         location = geolocator.geocode(nome_limpo, timeout=10)
@@ -95,14 +96,25 @@ def consultar_hlag(booking, cache):
     except:
         return None, False, "Erro Conexão"
 
-# --- BUSCA AUTOMÁTICA DO ARQUIVO ---
-# Esta lógica busca o arquivo no GitHub mesmo que o nome tenha espaços extras
+# --- BUSCA INTELIGENTE DA PLANILHA ---
 
 
 def localizar_planilha():
-    arquivos = [f for f in os.listdir(
+    # 1. Tenta na raiz do projeto
+    arquivos_raiz = [f for f in os.listdir(
         '.') if 'booking' in f.lower() and f.endswith('.xlsx')]
-    return arquivos[0] if arquivos else None
+    if arquivos_raiz:
+        return arquivos_raiz[0]
+
+    # 2. Tenta dentro da pasta 'hapag_Lloyd' (visto no seu print)
+    pasta_alvo = 'hapag_Lloyd'
+    if os.path.exists(pasta_alvo):
+        arquivos_pasta = [os.path.join(pasta_alvo, f) for f in os.listdir(pasta_alvo)
+                          if 'booking' in f.lower() and f.endswith('.xlsx')]
+        if arquivos_pasta:
+            return arquivos_pasta[0]
+
+    return None
 
 
 CAMINHO_PLANILHA = localizar_planilha()
@@ -125,7 +137,7 @@ with c3:
     refresh_ativo = st.toggle("Auto-Refresh (60 min)", value=True)
 
 with c4:
-    if st.button("🔄 Atualizar"):
+    if st.button("🔄 Atualizar", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
     container_download = st.empty()
@@ -138,7 +150,15 @@ if CAMINHO_PLANILHA:
     try:
         df_base = pd.read_excel(CAMINHO_PLANILHA)
         df_base.columns = df_base.columns.str.strip()
-        col_booking = [c for c in df_base.columns if 'booking' in c.lower()][0]
+
+        # Busca flexível pela coluna de booking
+        colunas_possiveis = [
+            c for c in df_base.columns if 'booking' in c.lower()]
+        if not colunas_possiveis:
+            st.error("Não foi encontrada uma coluna com 'Booking' na planilha.")
+            st.stop()
+
+        col_booking = colunas_possiveis[0]
         lista_bookings = df_base[col_booking].dropna().unique()
 
         dados_tabela = []
@@ -205,7 +225,7 @@ if CAMINHO_PLANILHA:
         progresso.empty()
         df_final = pd.DataFrame(dados_tabela)
 
-        # Botão de Download (Para salvar de volta no seu SharePoint local)
+        # Download do Excel para uso no SharePoint local
         with container_download:
             buffer = io.BytesIO()
             df_final.drop(columns=['lat_o', 'lon_o', 'lat_d', 'lon_d']).to_excel(
@@ -213,7 +233,7 @@ if CAMINHO_PLANILHA:
             st.download_button(
                 label="📥 Baixar Excel",
                 data=buffer.getvalue(),
-                file_name="relatorio_rastreamento.xlsx",
+                file_name=f"relatorio_hlag_{datetime.now().strftime('%d_%m')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
