@@ -23,6 +23,7 @@ dados_conexao = (
     "Trusted_Connection=yes;"
 )
 
+
 def realizar_carga_historica_euro():
     print("--- Iniciando Carga Histórica do EURO (Apenas Fechamento PTAX) ---")
     print("Baixando dados do Banco Central... aguarde.")
@@ -34,7 +35,8 @@ def realizar_carga_historica_euro():
         lista_cotacoes = dados['value']
 
         total = len(lista_cotacoes)
-        print(f"Foram encontrados {total} registros de fechamento para importar.")
+        print(
+            f"Foram encontrados {total} registros de fechamento para importar.")
 
     except Exception as e:
         print(f"Erro ao baixar dados: {e}")
@@ -80,6 +82,7 @@ def realizar_carga_historica_euro():
     finally:
         if 'conn' in locals():
             conn.close()
+
 
 if __name__ == "__main__":
     realizar_carga_historica_euro()
