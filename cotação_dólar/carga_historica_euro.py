@@ -4,18 +4,20 @@ from datetime import datetime
 
 # --- CONFIGURAÇÕES ---
 # Formato Mês-Dia-Ano (MM-DD-AAAA)
-data_inicio = '02-03-2026'
-data_fim = '02-03-2026'
+data_inicio = '01-01-2024'
+data_fim = '03-03-2026' # Data de hoje para cobrir tudo
 
-# URL BLINDADA: Traz apenas os boletins onde o tipo é exatamente 'Fechamento' no período selecionado
+# URL AJUSTADA: Removemos o filtro fixo de 'Fechamento' para evitar que dias 
+# recém-fechados fiquem de fora por atraso na etiqueta do BC.
+# Ordenamos por dataHoraCotacao para garantir a cronologia.
 url_api = (
     f"https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/"
     f"CotacaoMoedaPeriodo(moeda=@moeda,dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)?"
     f"@moeda='EUR'&@dataInicial='{data_inicio}'&@dataFinalCotacao='{data_fim}'"
-    f"&$filter=tipoBoletim eq 'Fechamento'&$top=10000&$format=json"
+    f"&$orderby=dataHoraCotacao asc&$format=json"
 )
 
-# Conexão SQL Server (Seu Servidor Atual)
+# Conexão SQL Server
 dados_conexao = (
     "Driver={ODBC Driver 17 for SQL Server};"
     "Server=CORPORATIVOMTCS;"
@@ -23,20 +25,31 @@ dados_conexao = (
     "Trusted_Connection=yes;"
 )
 
-
 def realizar_carga_historica_euro():
-    print("--- Iniciando Carga Histórica do EURO (Apenas Fechamento PTAX) ---")
+    print(f"--- Iniciando Carga Histórica do EURO ({data_inicio} até {data_fim}) ---")
     print("Baixando dados do Banco Central... aguarde.")
 
     try:
         response = requests.get(url_api)
         response.raise_for_status()
         dados = response.json()
-        lista_cotacoes = dados['value']
+        todos_boletins = dados['value']
 
-        total = len(lista_cotacoes)
-        print(
-            f"Foram encontrados {total} registros de fechamento para importar.")
+        if not todos_boletins:
+            print("Nenhum dado encontrado no período.")
+            return
+
+        # --- LÓGICA DE FILTRAGEM ---
+        # Como o BC gera vários boletins por dia, vamos guardar apenas o ÚLTIMO de cada data.
+        cotações_por_dia = {}
+        for item in todos_boletins:
+            data_curta = item['dataHoraCotacao'].split(' ')[0]
+            # O dicionário será sobrescrito a cada novo boletim do mesmo dia,
+            # restando apenas o último (o fechamento real) ao final do loop.
+            cotações_por_dia[data_curta] = item
+
+        lista_final = list(cotações_por_dia.values())
+        print(f"Foram identificados {len(lista_final)} dias úteis para importar.")
 
     except Exception as e:
         print(f"Erro ao baixar dados: {e}")
@@ -47,9 +60,6 @@ def realizar_carga_historica_euro():
         conn = pyodbc.connect(dados_conexao)
         cursor = conn.cursor()
 
-        contador_inseridos = 0
-
-        # Query de inserção segura apontando para a tabela CotacaoEuro
         query = """
         IF NOT EXISTS (SELECT 1 FROM CotacaoEuro WHERE DataCotacao = ?)
         BEGIN
@@ -59,30 +69,23 @@ def realizar_carga_historica_euro():
         """
 
         print("Gravando no Banco de Dados...")
+        
+        for item in lista_final:
+            data_api = item['dataHoraCotacao'].split(' ')[0]
+            v_compra = item['cotacaoCompra']
+            v_venda = item['cotacaoVenda']
 
-        for item in lista_cotacoes:
-            # A API retorna data hora completa, vamos converter
-            data_str = item['dataHoraCotacao']
-            valor_compra = item['cotacaoCompra']
-            valor_venda = item['cotacaoVenda']
-
-            # Formata a data para o padrão do SQL
-            data_formatada = data_str.split(' ')[0]
-
-            cursor.execute(query, data_formatada, data_formatada,
-                           valor_compra, valor_venda)
-            contador_inseridos += 1
+            cursor.execute(query, data_api, data_api, v_compra, v_venda)
 
         conn.commit()
         print(f"--- Sucesso! Processo finalizado. ---")
-        print(f"Registros processados e verificados: {total}")
+        print(f"Registros processados na tabela CotacaoEuro: {len(lista_final)}")
 
     except Exception as e:
         print(f"Erro no Banco de Dados: {e}")
     finally:
         if 'conn' in locals():
             conn.close()
-
 
 if __name__ == "__main__":
     realizar_carga_historica_euro()
