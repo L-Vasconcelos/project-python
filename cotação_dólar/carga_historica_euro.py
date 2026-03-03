@@ -4,8 +4,8 @@ from datetime import datetime
 
 # --- CONFIGURAÇÕES ---
 # Formato Mês-Dia-Ano (MM-DD-AAAA)
-data_inicio = '03-02-2025'
-data_fim = '03-03-2026'
+data_inicio = '02-03-2026'
+data_fim = '02-03-2026'
 
 # URL BLINDADA: Traz apenas os boletins onde o tipo é exatamente 'Fechamento' no período selecionado
 url_api = (
