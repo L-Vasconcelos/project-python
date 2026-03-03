@@ -1,6 +1,7 @@
 # Passo a passo do projeto
-# Passo 1: Entrar no sistema da empresa 
-    # https://dlp.hashtagtreinamentos.com/python/intensivao/login
+# Passo 1: Entrar no sistema da empresa
+import pandas as pd
+# https://dlp.hashtagtreinamentos.com/python/intensivao/login
 
 import pyautogui
 import time
@@ -16,7 +17,7 @@ pyautogui.press("win")
 pyautogui.write("chrome")
 pyautogui.press("enter")
 
-# entrar no link 
+# entrar no link
 pyautogui.write("https://dlp.hashtagtreinamentos.com/python/intensivao/login")
 pyautogui.press("enter")
 time.sleep(3)
@@ -27,13 +28,12 @@ time.sleep(3)
 pyautogui.click(x=685, y=451)
 # escrever o seu email
 pyautogui.write("pythonimpressionador@gmail.com")
-pyautogui.press("tab") # passando pro próximo campo
+pyautogui.press("tab")  # passando pro próximo campo
 pyautogui.write("sua senha")
-pyautogui.click(x=955, y=638) # clique no botao de login
+pyautogui.click(x=955, y=638)  # clique no botao de login
 time.sleep(3)
 
 # Passo 3: Importar a base de produtos pra cadastrar
-import pandas as pd
 
 tabela = pd.read_csv("produtos.csv")
 
@@ -64,7 +64,7 @@ for linha in tabela.index:
     if not pd.isna(obs):
         pyautogui.write(str(tabela.loc[linha, "obs"]))
     pyautogui.press("tab")
-    pyautogui.press("enter") # cadastra o produto (botao enviar)
+    pyautogui.press("enter")  # cadastra o produto (botao enviar)
     # dar scroll de tudo pra cima
     pyautogui.scroll(5000)
     # Passo 5: Repetir o processo de cadastro até o fim
