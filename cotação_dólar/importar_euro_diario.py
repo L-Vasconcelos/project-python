@@ -5,7 +5,7 @@ from datetime import datetime
 # --- CONFIGURAÇÕES ---
 data_hoje = datetime.now().strftime('%m-%d-%Y')
 
-# AJUSTE NA URL: 
+# AJUSTE NA URL:
 # Removemos o filtro de texto 'Fechamento' e usamos o $orderby desc com $top=1
 # Isso garante que pegaremos o ÚLTIMO boletim do dia (que é o de fechamento).
 url_api = (
@@ -22,6 +22,7 @@ dados_conexao = (
     "Trusted_Connection=yes;"
 )
 
+
 def importar_euro_diario():
     try:
         response = requests.get(url_api)
@@ -29,7 +30,8 @@ def importar_euro_diario():
 
         # Verifica se a lista 'value' contém dados
         if not dados.get('value'):
-            print(f"Nenhuma cotação de Euro disponível para hoje ({data_hoje}) até o momento.")
+            print(
+                f"Nenhuma cotação de Euro disponível para hoje ({data_hoje}) até o momento.")
             return
 
         item = dados['value'][0]
@@ -52,13 +54,15 @@ def importar_euro_diario():
 
         cursor.execute(query, data_api, data_api, valor_compra, valor_venda)
         conn.commit()
-        print(f"Sucesso: PTAX Euro de {data_api} processada. Compra: {valor_compra}")
+        print(
+            f"Sucesso: PTAX Euro de {data_api} processada. Compra: {valor_compra}")
 
     except Exception as e:
         print(f"Erro ao processar Euro: {e}")
     finally:
         if 'conn' in locals():
             conn.close()
+
 
 if __name__ == "__main__":
     importar_euro_diario()
