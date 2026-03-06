@@ -3,8 +3,8 @@ import pyodbc
 from datetime import datetime
 
 # --- CONFIGURAÇÕES ---
-data_inicio = '02-24-2026'
-data_fim = '02-24-2026'  # (Mês 03, dia 02? Ou Dia 03, Mês 02?)
+data_inicio = '03-05-2026'
+data_fim = '03-05-2026'  # (Mês 03, dia 02? Ou Dia 03, Mês 02?)
 
 # URL específica para PERÍODO (Note o $top=10000 para garantir que traga tudo de uma vez)
 url_api = (
