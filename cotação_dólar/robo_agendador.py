@@ -3,6 +3,8 @@ import sys
 import time
 import subprocess
 import smtplib
+import urllib.request
+import urllib.error
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
@@ -10,9 +12,7 @@ from datetime import datetime
 
 # Bibliotecas de Automação Web (Selenium)
 from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
 
 # --- CONFIGURAÇÕES DE CAMINHOS ---
 PASTA_DO_SCRIPT = os.path.dirname(os.path.abspath(__file__))
@@ -34,7 +34,7 @@ SENHA_EMAIL = os.getenv('bi@mtcs.com.br')
 
 
 def iniciar_streamlit():
-    """Inicia o dashboard garantindo o caminho correto."""
+    """Inicia o dashboard garantindo o caminho correto e aguarda ficar online."""
     print(f"🚀 Iniciando Streamlit...")
 
     if not os.path.exists(CAMINHO_COMPLETO_DASHBOARD):
@@ -54,7 +54,29 @@ def iniciar_streamlit():
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL
     )
-    time.sleep(12)
+    
+    # --- SISTEMA DE ESPERA DINÂMICA ---
+    print("⏳ Aguardando o servidor Streamlit ficar online...")
+    tempo_maximo = 45 # Dá até 45 segundos para o Streamlit iniciar
+    inicio = time.time()
+    servidor_online = False
+
+    while time.time() - inicio < tempo_maximo:
+        try:
+            # Tenta acessar a URL do dashboard
+            codigo_resposta = urllib.request.urlopen(URL_DASHBOARD).getcode()
+            if codigo_resposta == 200:
+                servidor_online = True
+                tempo_decorrido = round(time.time() - inicio, 1)
+                print(f"✅ Streamlit online em {tempo_decorrido} segundos!")
+                break
+        except urllib.error.URLError:
+            # O servidor ainda não está pronto, espera 1 segundo e tenta de novo
+            time.sleep(1)
+
+    if not servidor_online:
+        print("⚠️ Aviso: O Streamlit demorou muito para responder. O Selenium pode falhar.")
+
     return processo
 
 
@@ -70,14 +92,14 @@ def tirar_print_memoria():
 
     driver = None
     try:
-        driver = webdriver.Chrome(service=Service(
-            ChromeDriverManager().install()), options=chrome_options)
+        # INICIALIZAÇÃO SIMPLIFICADA USANDO O SELENIUM MANAGER NATIVO
+        driver = webdriver.Chrome(options=chrome_options)
         driver.get(URL_DASHBOARD)
 
         print("⏳ Aguardando montagem inicial (30s)...")
         time.sleep(30)
 
-        # O SEGREDO AQUI: Rolar a tela para baixo e para cima para forçar o JavaScript a desenhar os gráficos
+        # Rolar a tela para baixo e para cima para forçar o JavaScript a desenhar os gráficos
         print("🔄 Simulando rolagem de tela para forçar carregamento dos gráficos...")
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         time.sleep(10) # Dá tempo para os gráficos desenharem
