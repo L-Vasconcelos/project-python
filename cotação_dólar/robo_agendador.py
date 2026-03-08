@@ -57,6 +57,8 @@ def iniciar_streamlit():
     
     # --- SISTEMA DE ESPERA DINÂMICA ---
     print("⏳ Aguardando o servidor Streamlit ficar online...")
+    time.sleep(3) # Dá um fôlego inicial para o processo do Streamlit abrir a porta
+    
     tempo_maximo = 45 # Dá até 45 segundos para o Streamlit iniciar
     inicio = time.time()
     servidor_online = False
@@ -70,8 +72,8 @@ def iniciar_streamlit():
                 tempo_decorrido = round(time.time() - inicio, 1)
                 print(f"✅ Streamlit online em {tempo_decorrido} segundos!")
                 break
-        except urllib.error.URLError:
-            # O servidor ainda não está pronto, espera 1 segundo e tenta de novo
+        except (urllib.error.URLError, ConnectionError, Exception):
+            # O servidor ainda não está pronto ou a conexão foi recusada, espera 1 segundo e tenta de novo
             time.sleep(1)
 
     if not servidor_online:
