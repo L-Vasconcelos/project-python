@@ -13,7 +13,7 @@ Opcionais (comente/descomente no topo):
   - Publicar em Google Sheets
   - Enviar e-mail com gráfico
 Agendamento:
-  - Windows Task Scheduler ou crona
+  - Windows Task Scheduler ou cron
 """
 
 import cloudscraper
@@ -27,12 +27,12 @@ import requests
 import yfinance as yf
 import pandas as pd
 import matplotlib.pyplot as plt
-# Imports para o Selenium (adicione no topo do arquivo)
+
+# Imports para o Selenium
 import time
 from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
+# webdriver_manager removido: Selenium >= 4.6 já faz o gerenciamento nativamente
 from curl_cffi import requests as c_requests
 from pathlib import Path
 from datetime import datetime
@@ -50,7 +50,6 @@ from bs4 import BeautifulSoup
 # ============== CONFIGURAÇÃO (edite aqui) ============== #
 TZ = gettz("America/Sao_Paulo")
 
-
 def _one_drive_base() -> Path:
     """Detecta a pasta base do OneDrive no Windows (corporativo/consumer)."""
     for var in ("OneDriveCommercial", "OneDriveConsumer", "OneDrive"):
@@ -62,7 +61,6 @@ def _one_drive_base() -> Path:
         return home / "OneDrive"
     # Fallback local caso não haja OneDrive
     return home / "Documents"
-
 
 # Pasta base do projeto
 BASE_DIR = _one_drive_base() / "Arquivos" / "Python" / "excel-api_restful"
@@ -98,10 +96,8 @@ EMAIL_BODY = "Segue anexo o gráfico diário do POGO Spread."
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s [%(levelname)s] %(message)s")
 
-
 def _today_local_date():
     return datetime.now(TZ).date()
-
 
 def _ensure_parent_dir(path: str):
     d = os.path.dirname(os.path.abspath(path))
@@ -117,7 +113,6 @@ def _ensure_parent_dir(path: str):
 
 # ------------------- Persistência ------------------- #
 
-
 def read_history() -> pd.DataFrame:
     if not os.path.exists(HISTORY_XLSX):
         return pd.DataFrame(columns=["date", "palm_usd_ton", "brent_usd_ton", "pogo"])
@@ -129,7 +124,6 @@ def read_history() -> pd.DataFrame:
     except Exception:
         # arquivo existe mas sem a aba; cria DF vazio
         return pd.DataFrame(columns=["date", "palm_usd_ton", "brent_usd_ton", "pogo"])
-
 
 def write_history(df: pd.DataFrame):
     """
@@ -158,12 +152,6 @@ def write_history(df: pd.DataFrame):
 
 # ------------------- Coleta de dados ------------------- #
 
-
-# Adicione este import lá no topo junto com os outros
-
-# Adicione este import no topo do seu arquivo, junto com os outros
-
-
 def get_palm_price_myr_per_ton() -> int:
     """
     Extrai o preço do óleo de palma (MYR/ton) no MPOC.
@@ -182,9 +170,8 @@ def get_palm_price_myr_per_ton() -> int:
         "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
     try:
-        # Instala/atualiza o driver automaticamente e inicia o browser
-        service = Service(ChromeDriverManager().install())
-        driver = webdriver.Chrome(service=service, options=chrome_options)
+        # Selenium 4.6+ instala/atualiza o driver automaticamente e inicia o browser
+        driver = webdriver.Chrome(options=chrome_options)
 
         logging.info(f"Acessando {MPOC_URL}...")
         driver.get(MPOC_URL)
@@ -203,8 +190,6 @@ def get_palm_price_myr_per_ton() -> int:
         except:
             pass
         raise RuntimeError(f"Erro no Selenium: {e}")
-
-    # --- Daqui para baixo é a lógica de extração que você já tinha ---
 
     # Validação se ainda estamos bloqueados
     lower = html.lower()
@@ -261,148 +246,6 @@ def get_palm_price_myr_per_ton() -> int:
     raise RuntimeError(
         f"Não consegui extrair o preço nem com Selenium. Verifique o HTML em: {debug_path}"
     )
-    num_pat = re.compile(r"(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)")
-
-    # 1) Tenta via tabelas HTML
-    try:
-        tables = pd.read_html(StringIO(html))
-        candidates = []
-        for t in tables:
-            for v in t.values.ravel():
-                if pd.isna(v):
-                    continue
-                s = str(v)
-                m = num_pat.search(s)
-                if not m:
-                    continue
-                n = float(m.group(1).replace(",", ""))
-                # Faixa plausível para MYR/ton (2000 a 10000)
-                if 2000 <= n <= 10000:
-                    candidates.append(int(round(n)))
-
-        if candidates:
-            # Pega o valor mais comum encontrado nas tabelas
-            return Counter(candidates).most_common(1)[0][0]
-
-    except Exception as e:
-        logging.info(f"[MPOC] read_html falhou (pode ser layout/JS): {e}")
-
-    # 2) Fallback por texto completo (BeautifulSoup)
-    soup = BeautifulSoup(html, "lxml")
-    text = soup.get_text(" ", strip=True)
-
-    found = []
-    # Procura números soltos no texto que façam sentido
-    for m in num_pat.finditer(text):
-        n = float(m.group(1).replace(",", ""))
-        if 2000 <= n <= 10000:
-            found.append(int(round(n)))
-
-    if found:
-        return Counter(found).most_common(1)[0][0]
-
-    # 3) Se chegou aqui, não achou nada
-    debug_path = Path(
-        BASE_DIR) / f"mpoc_debug_{datetime.now(TZ).strftime('%Y%m%d_%H%M%S')}.html"
-    debug_path.write_text(html, encoding="utf-8", errors="ignore")
-    raise RuntimeError(
-        f"Não consegui extrair o preço. O site pode ter mudado o layout. HTML salvo em: {debug_path}"
-    )
-
-    # Padrão numérico flexível
-    num_pat = re.compile(r"(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)")
-
-    # 1) Tenta via tabelas HTML
-    try:
-        tables = pd.read_html(StringIO(html))
-        candidates = []
-        for t in tables:
-            for v in t.values.ravel():
-                if pd.isna(v):
-                    continue
-                s = str(v)
-                m = num_pat.search(s)
-                if not m:
-                    continue
-                n = float(m.group(1).replace(",", ""))
-                # faixa plausível para MYR/ton
-                if 2000 <= n <= 10000:
-                    candidates.append(int(round(n)))
-
-        if candidates:
-            return Counter(candidates).most_common(1)[0][0]
-
-    except Exception as e:
-        logging.info(f"[MPOC] read_html falhou (pode ser layout/JS): {e}")
-
-    # 2) Fallback por texto completo
-    soup = BeautifulSoup(html, "lxml")
-    text = soup.get_text(" ", strip=True)
-
-    found = []
-    for m in num_pat.finditer(text):
-        n = float(m.group(1).replace(",", ""))
-        if 2000 <= n <= 10000:
-            found.append(int(round(n)))
-
-    if found:
-        return Counter(found).most_common(1)[0][0]
-
-    # 3) Debug final
-    debug_path = Path(
-        BASE_DIR) / f"mpoc_debug_{datetime.now(TZ).strftime('%Y%m%d_%H%M%S')}.html"
-    debug_path.write_text(html, encoding="utf-8", errors="ignore")
-    raise RuntimeError(
-        f"Não consegui extrair o preço do óleo de palma (MYR/ton) no MPOC. HTML salvo em: {debug_path}"
-    )
-
-    # Padrão numérico flexível
-    num_pat = re.compile(r"(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)")
-
-    # 1) Tenta via tabelas HTML
-    try:
-        tables = pd.read_html(StringIO(html))
-        candidates = []
-        for t in tables:
-            for v in t.values.ravel():
-                if pd.isna(v):
-                    continue
-                s = str(v)
-                m = num_pat.search(s)
-                if not m:
-                    continue
-                n = float(m.group(1).replace(",", ""))
-                # faixa plausível para MYR/ton
-                if 2000 <= n <= 10000:
-                    candidates.append(int(round(n)))
-
-        if candidates:
-            return Counter(candidates).most_common(1)[0][0]
-
-    except Exception as e:
-        logging.info(f"[MPOC] read_html falhou (pode ser layout/JS): {e}")
-
-    # 2) Fallback por texto completo
-    soup = BeautifulSoup(html, "lxml")
-    text = soup.get_text(" ", strip=True)
-
-    found = []
-    for m in num_pat.finditer(text):
-        n = float(m.group(1).replace(",", ""))
-        if 2000 <= n <= 10000:
-            found.append(int(round(n)))
-
-    if found:
-        return Counter(found).most_common(1)[0][0]
-
-    # 3) Debug final
-    debug_path = Path(
-        BASE_DIR) / f"mpoc_debug_{datetime.now(TZ).strftime('%Y%m%d_%H%M%S')}.html"
-    debug_path.write_text(html, encoding="utf-8", errors="ignore")
-    raise RuntimeError(
-        f"Não consegui extrair o preço do óleo de palma (MYR/ton) no MPOC. HTML salvo em: {debug_path}"
-    )
-
 
 def get_usd_per_myr() -> float:
     """
@@ -424,7 +267,6 @@ def get_usd_per_myr() -> float:
 
     myr_per_usd = vals.dropna().iloc[-1].item()
     return 1.0 / myr_per_usd
-
 
 def get_brent_usd_per_ton() -> float:
     """
@@ -449,7 +291,6 @@ def get_brent_usd_per_ton() -> float:
 
 # ------------------- Gráfico ------------------- #
 
-
 def plot_series(df: pd.DataFrame, path_png: str):
     if df.empty:
         logging.warning("Sem dados para plotar.")
@@ -471,7 +312,6 @@ def plot_series(df: pd.DataFrame, path_png: str):
     plt.close()
 
 # --------------- Integrações opcionais --------------- #
-
 
 def publish_to_google_sheets(df: pd.DataFrame):
     import gspread
@@ -496,7 +336,6 @@ def publish_to_google_sheets(df: pd.DataFrame):
     ws = sh.add_worksheet(title=GDRIVE_WORKSHEET, rows="1000", cols="10")
     ws.update([df.columns.tolist()] + df.values.tolist())
 
-
 def send_email_with_attachment(path_png: str):
     """Envia o PNG por e-mail usando SMTP."""
     msg = MIMEMultipart()
@@ -519,7 +358,6 @@ def send_email_with_attachment(path_png: str):
         server.sendmail(SMTP_USER, EMAIL_TO, msg.as_string())
 
 # ------------------- Fluxo principal ------------------- #
-
 
 def run_once() -> dict:
     # Palma (MPOC) com fallback REMOVIDO
@@ -582,7 +420,6 @@ def run_once() -> dict:
         "pogo": pogo,
         "palm_source": palm_source,
     }
-
 
 if __name__ == "__main__":
     try:
