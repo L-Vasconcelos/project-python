@@ -20,7 +20,8 @@ from selenium.webdriver.support import expected_conditions as EC
 # --- CONFIGURAÇÕES DE CAMINHOS ---
 PASTA_DO_SCRIPT = os.path.dirname(os.path.abspath(__file__))
 NOME_ARQUIVO_DASHBOARD = "enviar_relatorio_dolar.py"
-CAMINHO_COMPLETO_DASHBOARD = os.path.join(PASTA_DO_SCRIPT, NOME_ARQUIVO_DASHBOARD)
+CAMINHO_COMPLETO_DASHBOARD = os.path.join(
+    PASTA_DO_SCRIPT, NOME_ARQUIVO_DASHBOARD)
 
 # Configurações de Rede
 PORTA_STREAMLIT = "8501"
@@ -30,6 +31,7 @@ URL_DASHBOARD = f"http://127.0.0.1:{PORTA_STREAMLIT}"
 EMAIL_REMETENTE = "bi@mtcs.com.br"
 EMAIL_DESTINATARIO = "bi@mtcs.com.br"
 SENHA_EMAIL = os.getenv('bi@mtcs.com.br')
+
 
 def iniciar_streamlit():
     """Inicia o dashboard garantindo o caminho correto e aguarda ficar online."""
@@ -52,11 +54,11 @@ def iniciar_streamlit():
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL
     )
-    
+
     print("⏳ Aguardando o servidor Streamlit ficar online...")
-    time.sleep(3) 
-    
-    tempo_maximo = 45 
+    time.sleep(3)
+
+    tempo_maximo = 45
     inicio = time.time()
     servidor_online = False
 
@@ -76,6 +78,7 @@ def iniciar_streamlit():
 
     return processo
 
+
 def tirar_print_memoria():
     """Abre navegador, verifica erros, força carregamento e tira print seguro."""
     print("📸 Preparando navegador...")
@@ -92,28 +95,33 @@ def tirar_print_memoria():
         driver.get(URL_DASHBOARD)
 
         print("⏳ Aguardando renderização dos elementos (máx 60s)...")
-        
+
         # 1. ESPERA INTELIGENTE: Aguarda até que as tabelas de dados apareçam
         wait = WebDriverWait(driver, 60)
-        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '[data-testid="stDataFrame"]')))
-        
+        wait.until(EC.presence_of_element_located(
+            (By.CSS_SELECTOR, '[data-testid="stDataFrame"]')))
+
         # 2. ROLAGEM PARA FORÇAR RENDERIZAÇÃO DE GRÁFICOS (Lazy Loading do Plotly)
         print("🔄 Simulando rolagem de tela para forçar carregamento dos gráficos...")
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        time.sleep(5) # Aguarda os gráficos da parte inferior (Euro) renderizarem
+        driver.execute_script(
+            "window.scrollTo(0, document.body.scrollHeight);")
+        # Aguarda os gráficos da parte inferior (Euro) renderizarem
+        time.sleep(5)
         driver.execute_script("window.scrollTo(0, 0);")
-        time.sleep(3) # Volta para o topo e estabiliza
-        
+        time.sleep(3)  # Volta para o topo e estabiliza
+
         # 3. VERIFICAÇÃO DE ERROS NA TELA (O BLOQUEIO DE SEGURANÇA)
         # Procura por mensagens de st.error() ou st.warning() visíveis na tela
         alertas = driver.find_elements(By.CSS_SELECTOR, 'div[role="alert"]')
-        excecoes = driver.find_elements(By.CSS_SELECTOR, '[data-testid="stException"]')
-        
+        excecoes = driver.find_elements(
+            By.CSS_SELECTOR, '[data-testid="stException"]')
+
         if alertas or excecoes:
-            print("❌ ALERTA/ERRO DETECTADO NA TELA: O dashboard não carregou os dados corretamente.")
+            print(
+                "❌ ALERTA/ERRO DETECTADO NA TELA: O dashboard não carregou os dados corretamente.")
             print("🛑 Cancelando a captura de tela para evitar envio de e-mail quebrado.")
             driver.quit()
-            return None # Retornar None impede o envio do e-mail
+            return None  # Retornar None impede o envio do e-mail
 
         # Se passou por tudo limpo, tira o print final
         img_binaria = driver.get_screenshot_as_png()
@@ -123,11 +131,13 @@ def tirar_print_memoria():
         return img_binaria
 
     except Exception as e:
-        print(f"❌ Erro de Timeout ou falha severa no carregamento da página: {e}")
+        print(
+            f"❌ Erro de Timeout ou falha severa no carregamento da página: {e}")
         print("🛑 O print não foi tirado e o e-mail não será enviado.")
         if driver:
             driver.quit()
         return None
+
 
 def enviar_email(img_data):
     """Envia o e-mail recebendo a imagem direto da memória."""
@@ -169,7 +179,8 @@ Av. Maringá, 1880, Londrina PR, Brasil, 86060-000
     try:
         image = MIMEImage(img_data)
         image.add_header('Content-ID', '<imagem_dolar>')
-        image.add_header('Content-Disposition', 'inline', filename="relatorio_cambio.png")
+        image.add_header('Content-Disposition', 'inline',
+                         filename="relatorio_cambio.png")
         msg.attach(image)
     except Exception as e:
         print(f"❌ Erro ao processar imagem para e-mail: {e}")
@@ -185,18 +196,20 @@ Av. Maringá, 1880, Londrina PR, Brasil, 86060-000
     except Exception as e:
         print(f"❌ Falha no envio: {e}")
 
+
 def main():
     processo = None
     try:
         processo = iniciar_streamlit()
         if processo:
             dados_da_imagem = tirar_print_memoria()
-            
+
             # BLOQUEIO FINAL: Só envia o e-mail se "dados_da_imagem" não for vazio/None.
             if dados_da_imagem:
                 enviar_email(dados_da_imagem)
             else:
-                print("⚠️ E-mail abortado automaticamente devido a problemas na tela do dashboard.")
+                print(
+                    "⚠️ E-mail abortado automaticamente devido a problemas na tela do dashboard.")
         else:
             print("⚠️ Erro ao iniciar Streamlit.")
 
@@ -212,6 +225,7 @@ def main():
             except:
                 pass
             print("🏁 Processo Finalizado.")
+
 
 if __name__ == "__main__":
     main()
