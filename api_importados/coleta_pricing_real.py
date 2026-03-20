@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-
-=======
->>>>>>> 34465947bfe4b9de1828fda0c7643c621c128e05
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
@@ -9,11 +5,7 @@ from datetime import datetime
 import os
 import re
 import time
-<<<<<<< HEAD
 import random
-=======
-import random  # Importar o módulo random
->>>>>>> 34465947bfe4b9de1828fda0c7643c621c128e05
 
 # Lista de itens fornecida pelo usuário
 CHEMICAL_ITEMS = [
@@ -49,10 +41,6 @@ DEFAULT_UNITS = {
     "SORBITOL 70": "L"
 }
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 34465947bfe4b9de1828fda0c7643c621c128e05
 def clean_price(price_str):
     """Limpa a string de preço e converte para float."""
     if not price_str:
@@ -64,69 +52,40 @@ def clean_price(price_str):
     except ValueError:
         return None
 
-<<<<<<< HEAD
 def extract_unit(product_title):
     """Tenta extrair a unidade de medida do título do produto."""
     units = {"kg": ["kg", "quilo", "kilo"], 
              "g": ["g", "grama"], 
              "mg": ["mg", "miligrama"],
              "L": ["L", "litro"], 
-=======
-
-def extract_unit(product_title):
-    """Tenta extrair a unidade de medida do título do produto."""
-    units = {"kg": ["kg", "quilo", "kilo"],
-             "g": ["g", "grama"],
-             "mg": ["mg", "miligrama"],
-             "L": ["L", "litro"],
->>>>>>> 34465947bfe4b9de1828fda0c7643c621c128e05
              "ml": ["ml", "mililitro"],
              "un": ["unidade", "un", "pc", "peça"],
              "ton": ["ton", "tonelada"],
              "galão": ["galão", "galoes"],
              "saco": ["saco"],
              "caixa": ["caixa"]}
-<<<<<<< HEAD
     
-=======
-
->>>>>>> 34465947bfe4b9de1828fda0c7643c621c128e05
     for unit_key, unit_aliases in units.items():
         for alias in unit_aliases:
             if re.search(r'\b' + re.escape(alias) + r'\b', product_title, re.IGNORECASE):
                 return unit_key
     return None
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 34465947bfe4b9de1828fda0c7643c621c128e05
 def fetch_ml_price(item_name):
     """Busca o preço no Mercado Livre de forma simplificada e tenta extrair a unidade e moeda."""
     query = item_name.replace(" ", "-")
     url = f"https://lista.mercadolivre.com.br/{query}"
-<<<<<<< HEAD
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
     
-=======
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
-
->>>>>>> 34465947bfe4b9de1828fda0c7643c621c128e05
     try:
         response = requests.get(url, headers=headers, timeout=15)
         if response.status_code == 200:
             soup = BeautifulSoup(response.content, 'html.parser')
-<<<<<<< HEAD
             
-=======
-
->>>>>>> 34465947bfe4b9de1828fda0c7643c621c128e05
             # Busca o primeiro item da lista de resultados
             first_item = soup.find('li', class_='ui-search-layout__item')
             if first_item:
                 # Extrai o título do produto
-<<<<<<< HEAD
                 title_elem = first_item.find('h2', class_='ui-search-item__title')
                 product_title = title_elem.get_text() if title_elem else ""
                 
@@ -134,18 +93,6 @@ def fetch_ml_price(item_name):
                 price_whole = first_item.find('span', class_='andes-money-amount__fraction')
                 price_cents = first_item.find('span', class_='andes-money-amount__cents')
                 
-=======
-                title_elem = first_item.find(
-                    'h2', class_='ui-search-item__title')
-                product_title = title_elem.get_text() if title_elem else ""
-
-                # Extrai o preço
-                price_whole = first_item.find(
-                    'span', class_='andes-money-amount__fraction')
-                price_cents = first_item.find(
-                    'span', class_='andes-money-amount__cents')
-
->>>>>>> 34465947bfe4b9de1828fda0c7643c621c128e05
                 full_price_str = ""
                 if price_whole:
                     full_price_str += price_whole.get_text()
@@ -153,26 +100,15 @@ def fetch_ml_price(item_name):
                     full_price_str += "," + price_cents.get_text()
 
                 price = clean_price(full_price_str)
-<<<<<<< HEAD
                 unit = extract_unit(product_title) or DEFAULT_UNITS.get(item_name, "unidade")
                 currency = "BRL" # Mercado Livre Brasil, então a moeda é BRL
                 
-=======
-                unit = extract_unit(product_title) or DEFAULT_UNITS.get(
-                    item_name, "unidade")
-                currency = "BRL"  # Mercado Livre Brasil, então a moeda é BRL
-
->>>>>>> 34465947bfe4b9de1828fda0c7643c621c128e05
                 if price:
                     return price, "Mercado Livre", unit, currency
     except Exception as e:
         print(f"Erro ao buscar {item_name} no Mercado Livre: {e}")
     return None, None, DEFAULT_UNITS.get(item_name, "unidade"), "BRL"
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 34465947bfe4b9de1828fda0c7643c621c128e05
 def collect_chemical_prices(items):
     """Coleta os preços dos itens usando Web Scraping real e inclui a unidade e moeda."""
     prices_data = []
@@ -189,7 +125,6 @@ def collect_chemical_prices(items):
             "Moeda": currency,
             "Fonte": source if price else "Nao encontrado"
         })
-<<<<<<< HEAD
         time.sleep(random.uniform(1, 3)) # Pequeno delay para evitar bloqueio
     return pd.DataFrame(prices_data)
 
@@ -210,36 +145,11 @@ if __name__ == "__main__":
         os.makedirs(output_dir, exist_ok=True) # Garante que o diretório exista no sandbox
         output_excel_filename = os.path.join(output_dir, "historico_precos_quimicos.xlsx")
         print(f"Aviso: Salvando localmente para teste no sandbox: {output_excel_filename}")
-=======
-        time.sleep(random.uniform(1, 3))  # Pequeno delay para evitar bloqueio
-    return pd.DataFrame(prices_data)
-
-
-if __name__ == "__main__":
-    print("Iniciando a coleta de preços REAIS com unidades e moeda...")
-    df_new_prices = collect_chemical_prices(CHEMICAL_ITEMS)
-
-    # Caminho completo para o arquivo Excel no OneDrive do usuário
-    output_dir = r"C:\Users\luisf\OneDrive - Meridional TCS Ind e Com de Oleos S A\Arquivos\Python\importado"
-    output_excel_filename = os.path.join(
-        output_dir, "historico_precos_quimicos.xlsx")
-
-    # No ambiente sandbox, vamos salvar localmente para teste, pois o diretório do usuário não existe aqui
-    if not os.path.exists(output_dir):
-        print(
-            f"Aviso: Diretorio {output_dir} nao encontrado. Salvando localmente para teste.")
-        output_excel_filename = "historico_precos_quimicos.xlsx"
->>>>>>> 34465947bfe4b9de1828fda0c7643c621c128e05
 
     if os.path.exists(output_excel_filename):
         try:
             df_historical = pd.read_excel(output_excel_filename)
-<<<<<<< HEAD
             df_combined = pd.concat([df_historical, df_new_prices], ignore_index=True)
-=======
-            df_combined = pd.concat(
-                [df_historical, df_new_prices], ignore_index=True)
->>>>>>> 34465947bfe4b9de1828fda0c7643c621c128e05
         except Exception as e:
             print(f"Erro ao ler historico: {e}. Criando novo arquivo.")
             df_combined = df_new_prices
@@ -248,10 +158,5 @@ if __name__ == "__main__":
 
     # Salva o DataFrame combinado no arquivo Excel
     df_combined.to_excel(output_excel_filename, index=False)
-<<<<<<< HEAD
     print(f"\nColeta concluída. Dados atualizados e salvos em {output_excel_filename}")
-=======
-    print(
-        f"\nColeta concluída. Dados atualizados e salvos em {output_excel_filename}")
->>>>>>> 34465947bfe4b9de1828fda0c7643c621c128e05
     print(df_combined.tail(len(CHEMICAL_ITEMS)))
