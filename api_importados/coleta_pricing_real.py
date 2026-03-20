@@ -1,3 +1,4 @@
+
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
@@ -5,7 +6,7 @@ from datetime import datetime
 import os
 import re
 import time
-import random # Importar o módulo random
+import random
 
 # Lista de itens fornecida pelo usuário
 CHEMICAL_ITEMS = [
@@ -132,14 +133,19 @@ if __name__ == "__main__":
     print("Iniciando a coleta de preços REAIS com unidades e moeda...")
     df_new_prices = collect_chemical_prices(CHEMICAL_ITEMS)
     
-    # Caminho completo para o arquivo Excel no OneDrive do usuário
-    output_dir = r"C:\Users\luisf\OneDrive - Meridional TCS Ind e Com de Oleos S A\Arquivos\Python\importado"
-    output_excel_filename = os.path.join(output_dir, "historico_precos_quimicos.xlsx")
+    # Caminho completo para o arquivo Excel no OneDrive do usuário (para uso no Windows)
+    user_windows_path = r"C:\Users\lsilva\OneDrive - Meridional TCS Ind e Com de Oleos S A\Arquivos\Python\importado\historico_precos_quimicos.xlsx"
 
-    # No ambiente sandbox, vamos salvar localmente para teste, pois o diretório do usuário não existe aqui
-    if not os.path.exists(output_dir):
-        print(f"Aviso: Diretorio {output_dir} nao encontrado. Salvando localmente para teste.")
-        output_excel_filename = "historico_precos_quimicos.xlsx"
+    # Determina o caminho de saída com base no ambiente
+    if os.name == 'nt': # Se o sistema operacional for Windows
+        output_excel_filename = user_windows_path
+        output_dir = os.path.dirname(output_excel_filename)
+        os.makedirs(output_dir, exist_ok=True) # Cria o diretório no Windows se não existir
+    else: # Para ambientes Linux (como o sandbox)
+        output_dir = "/home/ubuntu/temp_prices" # Um diretório temporário no sandbox
+        os.makedirs(output_dir, exist_ok=True) # Garante que o diretório exista no sandbox
+        output_excel_filename = os.path.join(output_dir, "historico_precos_quimicos.xlsx")
+        print(f"Aviso: Salvando localmente para teste no sandbox: {output_excel_filename}")
 
     if os.path.exists(output_excel_filename):
         try:
