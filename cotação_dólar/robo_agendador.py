@@ -17,12 +17,14 @@ from selenium.webdriver.chrome.service import Service  # ADICIONADO
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager # ADICIONADO PARA AUTO-UPDATE
+# ADICIONADO PARA AUTO-UPDATE
+from webdriver_manager.chrome import ChromeDriverManager
 
 # --- CONFIGURAÇÕES DE CAMINHOS ---
 PASTA_DO_SCRIPT = os.path.dirname(os.path.abspath(__file__))
 NOME_ARQUIVO_DASHBOARD = "enviar_relatorio_dolar.py"
-CAMINHO_COMPLETO_DASHBOARD = os.path.join(PASTA_DO_SCRIPT, NOME_ARQUIVO_DASHBOARD)
+CAMINHO_COMPLETO_DASHBOARD = os.path.join(
+    PASTA_DO_SCRIPT, NOME_ARQUIVO_DASHBOARD)
 
 # Configurações de Rede
 PORTA_STREAMLIT = "8501"
@@ -30,10 +32,10 @@ URL_DASHBOARD = f"http://127.0.0.1:{PORTA_STREAMLIT}"
 
 # --- CONFIGURAÇÕES DE E-MAIL ---
 EMAIL_REMETENTE = "bi@mtcs.com.br"
-EMAIL_DESTINATARIO = "bi@mtcs.com.br"
+EMAIL_DESTINATARIO = "bi@mtcs.com.br, leonardo@mtcs.com.br, comercial2@mtcs.com.br, comercial5@mtcs.com.br"
 # DICA: Se a senha estiver no ambiente, use o nome da VARIÁVEL, não o e-mail.
 # Ex: SENHA_EMAIL = os.getenv('SENHA_SISTEMA_BI')
-SENHA_EMAIL = os.getenv('bi@mtcs.com.br') 
+SENHA_EMAIL = os.getenv('bi@mtcs.com.br')
 
 
 def iniciar_streamlit():
@@ -59,7 +61,7 @@ def iniciar_streamlit():
     )
 
     print("⏳ Aguardando o servidor Streamlit ficar online...")
-    
+
     tempo_maximo = 45
     inicio = time.time()
     servidor_online = False
@@ -71,14 +73,15 @@ def iniciar_streamlit():
             with urllib.request.urlopen(req) as response:
                 if response.getcode() == 200:
                     servidor_online = True
-                    print(f"✅ Streamlit online em {round(time.time() - inicio, 1)} segundos!")
+                    print(
+                        f"✅ Streamlit online em {round(time.time() - inicio, 1)} segundos!")
                     break
         except:
-            time.sleep(2) # Espera um pouco mais entre tentativas
+            time.sleep(2)  # Espera um pouco mais entre tentativas
 
     if not servidor_online:
         print("⚠️ Erro: Streamlit não iniciou a tempo.")
-    
+
     return processo
 
 
@@ -87,7 +90,7 @@ def tirar_print_memoria():
     print("📸 Preparando navegador...")
 
     chrome_options = Options()
-    chrome_options.add_argument("--headless=new") # Headless moderno
+    chrome_options.add_argument("--headless=new")  # Headless moderno
     chrome_options.add_argument("--window-size=1920,2200")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
@@ -98,19 +101,21 @@ def tirar_print_memoria():
         # CORREÇÃO: Usando Service e WebDriver Manager para evitar erros de versão do ChromeDriver
         servico = Service(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=servico, options=chrome_options)
-        
+
         driver.get(URL_DASHBOARD)
         print("⏳ Aguardando renderização (máx 60s)...")
 
         wait = WebDriverWait(driver, 60)
         # Espera até que o corpo do Streamlit apareça
-        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div.stApp')))
-        
+        wait.until(EC.presence_of_element_located(
+            (By.CSS_SELECTOR, 'div.stApp')))
+
         # Tempo extra para os gráficos carregarem
         time.sleep(8)
 
         # Forçar carregamento (scroll)
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        driver.execute_script(
+            "window.scrollTo(0, document.body.scrollHeight);")
         time.sleep(3)
         driver.execute_script("window.scrollTo(0, 0);")
         time.sleep(2)
@@ -137,7 +142,7 @@ def tirar_print_memoria():
 def enviar_email(img_data):
     """Envia o e-mail com a imagem."""
     print("📧 Enviando e-mail...")
-    
+
     if not SENHA_EMAIL:
         print("❌ ERRO: Senha de e-mail não configurada no ambiente.")
         return
@@ -182,9 +187,10 @@ def main():
                 enviar_email(imagem)
         finally:
             print("🛑 Encerrando Streamlit...")
-            subprocess.run(["taskkill", "/F", "/T", "/PID", str(processo.pid)], 
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(processo.pid)],
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             print("🏁 Finalizado.")
+
 
 if __name__ == "__main__":
     main()
