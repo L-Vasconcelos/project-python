@@ -39,6 +39,7 @@ def carregar_dados(nome_tabela):
         "Trusted_Connection=yes;"
     )
     try:
+        # Usando a conexão direta pyodbc (ignorar o UserWarning do pandas)
         conn = pyodbc.connect(dados_conexao)
         query = f"SELECT DataCotacao, ValorCompra, ValorVenda FROM {nome_tabela} ORDER BY DataCotacao ASC"
         df = pd.read_sql(query, conn)
@@ -67,6 +68,9 @@ def gerar_painel_moeda(df_raw, nome_moeda, icone):
 
     hoje = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     df = df_clean[df_clean['DataCotacao'] < hoje].copy()
+
+    if len(df) < 2:
+        return
 
     reg_ultimo = df.iloc[-1]
     reg_penultimo = df.iloc[-2]
@@ -98,10 +102,10 @@ def gerar_painel_moeda(df_raw, nome_moeda, icone):
     df_view.rename(columns={'MediaDia': 'Média (C/V)'}, inplace=True)
     df_view['DataCotacao'] = df_view['DataCotacao'].dt.strftime('%d/%m/%Y')
 
-    # CORREÇÃO AQUI: Usando applymap para garantir compatibilidade e não quebrar a página
+    # CORREÇÃO: Usando .map() em vez de .applymap()
     styler_tabela = df_view.style\
-        .applymap(estilo_variacao, subset=['Variação (%)'])\
-        .applymap(lambda _: 'color: #FFD700; font-weight: bold', subset=['Média (C/V)'])\
+        .map(estilo_variacao, subset=['Variação (%)'])\
+        .map(lambda _: 'color: #FFD700; font-weight: bold', subset=['Média (C/V)'])\
         .format({'ValorCompra': 'R$ {:.4f}', 'ValorVenda': 'R$ {:.4f}', 'Média (C/V)': 'R$ {:.4f}', 'Variação (%)': '{:+.2f}%'})
 
     df_grafico = df_recorte.iloc[1:].copy()
@@ -146,7 +150,9 @@ def gerar_painel_moeda(df_raw, nome_moeda, icone):
         )
         st.plotly_chart(fig, use_container_width=True)
 
+# --- INÍCIO ---
 st.title("📊 Relatório Executivo de Câmbio")
+
 df_dolar = carregar_dados('CotacaoDolar')
 gerar_painel_moeda(df_dolar, "Dólar", "💵")
 
