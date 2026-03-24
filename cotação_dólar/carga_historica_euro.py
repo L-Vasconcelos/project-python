@@ -4,8 +4,8 @@ from datetime import datetime
 
 # --- CONFIGURAÇÕES ---
 # Formato Mês-Dia-Ano (MM-DD-AAAA)
-data_inicio = '01-01-2024'
-data_fim = '03-03-2026' # Data de hoje para cobrir tudo
+data_inicio = '03-23-2026'
+data_fim = '03-23-2026' # Data de hoje para cobrir tudo
 
 # URL AJUSTADA: Removemos o filtro fixo de 'Fechamento' para evitar que dias 
 # recém-fechados fiquem de fora por atraso na etiqueta do BC.

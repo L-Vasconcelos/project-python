@@ -3,7 +3,7 @@ import pandas as pd
 import pyodbc
 import plotly.graph_objects as go
 import holidays
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Relatório Fechamento Câmbio", layout="wide")
@@ -30,8 +30,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-@st.cache_data(ttl=3600)
 def carregar_dados(nome_tabela):
+    """Carrega dados do SQL Server com tratamento de erro robusto."""
     dados_conexao = (
         "Driver={ODBC Driver 17 for SQL Server};"
         "Server=CORPORATIVOMTCS;"
@@ -39,16 +39,23 @@ def carregar_dados(nome_tabela):
         "Trusted_Connection=yes;"
     )
     try:
-        # Usando a conexão direta pyodbc (ignorar o UserWarning do pandas)
-        conn = pyodbc.connect(dados_conexao)
-        query = f"SELECT DataCotacao, ValorCompra, ValorVenda FROM {nome_tabela} ORDER BY DataCotacao ASC"
+        conn = pyodbc.connect(dados_conexao, timeout=10)
+        # Otimização: Pegar apenas os últimos 60 registros para performance
+        query = f"SELECT TOP 60 DataCotacao, ValorCompra, ValorVenda FROM {nome_tabela} ORDER BY DataCotacao DESC"
         df = pd.read_sql(query, conn)
         conn.close()
+        
+        if df.empty:
+            return None
+            
         df['DataCotacao'] = pd.to_datetime(df['DataCotacao'])
+        # Reordenar para cronológico após pegar os últimos
+        df = df.sort_values(by='DataCotacao', ascending=True)
         return df
     except Exception as e:
-        st.error(f"Erro ao carregar {nome_tabela}: {e}")
-        return pd.DataFrame()
+        # Erro crítico: O dashboard não deve renderizar se não houver dados
+        st.error(f"ERRO CRÍTICO DE CONEXÃO ({nome_tabela}): {e}")
+        return None
 
 def estilo_variacao(val):
     if pd.isna(val):
@@ -57,24 +64,30 @@ def estilo_variacao(val):
     return f'color: {color}; font-weight: bold'
 
 def gerar_painel_moeda(df_raw, nome_moeda, icone):
-    if df_raw.empty:
-        st.warning(f"Sem dados para {nome_moeda}")
-        return
+    """Gera o painel visual para a moeda especificada."""
+    if df_raw is None or df_raw.empty:
+        st.error(f"❌ DADOS NÃO LOCALIZADOS: {nome_moeda}")
+        return False
 
+    # Filtrar dias úteis e feriados
     df_clean = df_raw[df_raw['DataCotacao'].dt.dayofweek < 5].copy()
     feriados_br = holidays.BR()
     mask_feriados = ~df_clean['DataCotacao'].apply(lambda x: x in feriados_br)
     df_clean = df_clean[mask_feriados]
 
-    hoje = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    df = df_clean[df_clean['DataCotacao'] < hoje].copy()
+    # Garantir que temos dados suficientes para comparação
+    if len(df_clean) < 2:
+        st.warning(f"Dados insuficientes para {nome_moeda} (mínimo 2 dias úteis).")
+        return False
 
-    if len(df) < 2:
-        return
-
-    reg_ultimo = df.iloc[-1]
-    reg_penultimo = df.iloc[-2]
+    reg_ultimo = df_clean.iloc[-1]
+    reg_penultimo = df_clean.iloc[-2]
     data_ref = reg_ultimo['DataCotacao']
+
+    # Validação de Recência: Se o último dado for mais antigo que 3 dias úteis, alertar
+    hoje = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    if (hoje - data_ref).days > 5: # Tolerância para fins de semana prolongados
+        st.warning(f"Atenção: Os dados de {nome_moeda} estão desatualizados (Último: {data_ref.strftime('%d/%m/%Y')})")
 
     venda_atual = reg_ultimo['ValorVenda']
     venda_anterior = reg_penultimo['ValorVenda']
@@ -84,13 +97,15 @@ def gerar_painel_moeda(df_raw, nome_moeda, icone):
     compra_anterior = reg_penultimo['ValorCompra']
     delta_compra = ((compra_atual - compra_anterior) / compra_anterior) * 100
 
-    df_ano = df[df['DataCotacao'].dt.year == data_ref.year].copy()
+    # Estatísticas Anuais (baseadas no que foi carregado)
+    df_ano = df_clean[df_clean['DataCotacao'].dt.year == data_ref.year].copy()
     media_ano_compra = df_ano['ValorCompra'].mean()
     media_ano_venda = df_ano['ValorVenda'].mean()
     max_ano = df_ano['ValorVenda'].max()
     min_ano = df_ano['ValorVenda'].min()
 
-    df_recorte = df.iloc[-11:].copy()
+    # Preparação da Tabela (Últimos 10 dias úteis)
+    df_recorte = df_clean.iloc[-11:].copy()
     df_recorte['DataStr'] = df_recorte['DataCotacao'].dt.strftime('%d/%m')
     df_recorte['MediaDia'] = (df_recorte['ValorCompra'] + df_recorte['ValorVenda']) / 2
 
@@ -102,12 +117,12 @@ def gerar_painel_moeda(df_raw, nome_moeda, icone):
     df_view.rename(columns={'MediaDia': 'Média (C/V)'}, inplace=True)
     df_view['DataCotacao'] = df_view['DataCotacao'].dt.strftime('%d/%m/%Y')
 
-    # CORREÇÃO: Usando .map() em vez de .applymap()
     styler_tabela = df_view.style\
         .map(estilo_variacao, subset=['Variação (%)'])\
         .map(lambda _: 'color: #FFD700; font-weight: bold', subset=['Média (C/V)'])\
         .format({'ValorCompra': 'R$ {:.4f}', 'ValorVenda': 'R$ {:.4f}', 'Média (C/V)': 'R$ {:.4f}', 'Variação (%)': '{:+.2f}%'})
 
+    # Gráfico de Tendência
     df_grafico = df_recorte.iloc[1:].copy()
     media_periodo_constante = df_grafico['MediaDia'].mean()
 
@@ -122,10 +137,10 @@ def gerar_painel_moeda(df_raw, nome_moeda, icone):
     col5.metric("Máxima Ano", f"R$ {max_ano:.4f}")
     col6.metric("Mínima Ano", f"R$ {min_ano:.4f}")
 
-    col_esq, col_dir, col_vazia = st.columns([0.45, 0.45, 0.1])
+    col_esq, col_dir = st.columns([0.45, 0.55])
     with col_esq:
         st.subheader("📋 Últimos 10 Dias Úteis")
-        st.dataframe(styler_tabela, use_container_width=True, height=380, hide_index=True)
+        st.dataframe(styler_tabela, use_container_width=True, height=400, hide_index=True)
 
     with col_dir:
         st.subheader("📈 Tendência (Média Geral)")
@@ -135,7 +150,7 @@ def gerar_painel_moeda(df_raw, nome_moeda, icone):
             mode='lines+markers+text',
             text=df_grafico['MediaDia'].apply(lambda x: f"{x:.3f}"),
             textposition="top center", name='Média Dia',
-            textfont=dict(size=15), line=dict(color='#1f77b4', width=3)
+            textfont=dict(size=14), line=dict(color='#1f77b4', width=3)
         ))
         fig.add_trace(go.Scatter(
             x=df_grafico['DataStr'], y=[media_periodo_constante] * len(df_grafico),
@@ -143,20 +158,34 @@ def gerar_painel_moeda(df_raw, nome_moeda, icone):
             line=dict(color='#ff7f0e', width=2, dash='dot')
         ))
         fig.update_layout(
-            margin=dict(l=10, r=10, t=30, b=10), height=380,
+            margin=dict(l=10, r=10, t=30, b=10), height=400,
             template="plotly_white", showlegend=False,
-            xaxis=dict(type='category', tickmode='linear', tickfont=dict(size=14)),
+            xaxis=dict(type='category', tickmode='linear', tickfont=dict(size=12)),
             yaxis=dict(tickfont=dict(size=12))
         )
         st.plotly_chart(fig, use_container_width=True)
+    
+    return True
 
-# --- INÍCIO ---
+# --- INÍCIO DA EXECUÇÃO ---
 st.title("📊 Relatório Executivo de Câmbio")
 
+# Flag de sucesso para controle do Selenium
+sucesso_dolar = False
+sucesso_euro = False
+
 df_dolar = carregar_dados('CotacaoDolar')
-gerar_painel_moeda(df_dolar, "Dólar", "💵")
+if df_dolar is not None:
+    sucesso_dolar = gerar_painel_moeda(df_dolar, "Dólar", "💵")
 
 st.markdown("<br><br>", unsafe_allow_html=True) 
 
 df_euro = carregar_dados('CotacaoEuro')
-gerar_painel_moeda(df_euro, "Euro", "💶")
+if df_euro is not None:
+    sucesso_euro = gerar_painel_moeda(df_euro, "Euro", "💶")
+
+# Marcador invisível para o Selenium validar se tudo carregou OK
+if sucesso_dolar and sucesso_euro:
+    st.markdown('<div id="dashboard-ready" style="display:none">READY</div>', unsafe_allow_html=True)
+else:
+    st.markdown('<div id="dashboard-error" style="display:none">ERROR</div>', unsafe_allow_html=True)
