@@ -99,8 +99,11 @@ def iniciar_streamlit():
     # Encerra instâncias anteriores do Streamlit para evitar conflito de porta
     try:
         if os.name == 'nt':
+            # Mata processos Python que estejam rodando o dashboard (streamlit roda como python.exe)
             subprocess.run(
-                ["taskkill", "/F", "/IM", "streamlit.exe"],
+                ["wmic", "process", "where",
+                 f"commandline like '%streamlit%' and commandline like '%{NOME_ARQUIVO_DASHBOARD}%'",
+                 "delete"],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
             )
         else:
@@ -121,10 +124,13 @@ def iniciar_streamlit():
         "--server.address",   "127.0.0.1"
     ]
 
+    CAMINHO_LOG_STREAMLIT = os.path.join(PASTA_DO_SCRIPT, 'log_streamlit.txt')
+    arquivo_log_streamlit = open(CAMINHO_LOG_STREAMLIT, 'w', encoding='utf-8')
+
     processo = subprocess.Popen(
         comando,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL
+        stdout=arquivo_log_streamlit,
+        stderr=arquivo_log_streamlit
     )
 
     log.info("Aguardando servidor Streamlit ficar online (máx. 60s)...")
@@ -138,15 +144,21 @@ def iniciar_streamlit():
     time.sleep(8)
 
     while time.time() - inicio < tempo_maximo:
-        # socket.connect_ex retorna 0 se a porta estiver aceitando conexões,
-        # sem propagar exceções — muito mais confiável que urlopen no Py3.13.
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(2)
-        resultado = sock.connect_ex(("127.0.0.1", int(PORTA_STREAMLIT)))
-        sock.close()
-        if resultado == 0:
-            log.info(f"Streamlit online em {round(time.time() - inicio, 1)}s")
-            return processo
+        # Verifica se o processo já encerrou prematuramente (crash)
+        if processo.poll() is not None:
+            log.error(f"Streamlit encerrou inesperadamente (código {processo.returncode}). Verifique log_streamlit.txt")
+            return None
+
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(2)
+            resultado = sock.connect_ex(("127.0.0.1", int(PORTA_STREAMLIT)))
+            sock.close()
+            if resultado == 0:
+                log.info(f"Streamlit online em {round(time.time() - inicio, 1)}s")
+                return processo
+        except OSError:
+            pass
         time.sleep(2)
 
     log.error("Timeout: Streamlit não ficou online em 60 segundos")
