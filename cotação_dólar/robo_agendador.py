@@ -20,9 +20,11 @@ VARIÁVEL DE AMBIENTE OBRIGATÓRIA (Windows):
 import os
 import sys
 import time
+import socket
 import subprocess
 import smtplib
 import urllib.request
+import urllib.error
 import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -129,15 +131,23 @@ def iniciar_streamlit():
     tempo_maximo = 60
     inicio       = time.time()
 
+    # Aguarda inicialização mínima do Streamlit antes do primeiro teste.
+    # Sem esse sleep o primeiro connect_ex chega antes do processo subir,
+    # e no Python 3.13 o encadeamento de exceções do urllib não é capturado
+    # corretamente pelo except Exception neste contexto.
+    time.sleep(8)
+
     while time.time() - inicio < tempo_maximo:
-        try:
-            req = urllib.request.Request(URL_DASHBOARD)
-            with urllib.request.urlopen(req, timeout=5) as response:
-                if response.getcode() == 200:
-                    log.info(f"Streamlit online em {round(time.time() - inicio, 1)}s")
-                    return processo
-        except Exception:
-            time.sleep(2)
+        # socket.connect_ex retorna 0 se a porta estiver aceitando conexões,
+        # sem propagar exceções — muito mais confiável que urlopen no Py3.13.
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(2)
+        resultado = sock.connect_ex(("127.0.0.1", int(PORTA_STREAMLIT)))
+        sock.close()
+        if resultado == 0:
+            log.info(f"Streamlit online em {round(time.time() - inicio, 1)}s")
+            return processo
+        time.sleep(2)
 
     log.error("Timeout: Streamlit não ficou online em 60 segundos")
     processo.terminate()

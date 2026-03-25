@@ -3,3 +3,13 @@
 25/03/2026 17:59:17 [INFO] ============================================================
 25/03/2026 17:59:17 [INFO] Iniciando Streamlit: enviar_relatorio_dolar.py
 25/03/2026 17:59:20 [INFO] Aguardando servidor Streamlit ficar online (máx. 60s)...
+25/03/2026 18:00:11 [INFO] ============================================================
+25/03/2026 18:00:11 [INFO] INÍCIO DO PROCESSO: 25/03/2026 18:00:11
+25/03/2026 18:00:11 [INFO] ============================================================
+25/03/2026 18:00:11 [INFO] Iniciando Streamlit: enviar_relatorio_dolar.py
+25/03/2026 18:00:14 [INFO] Aguardando servidor Streamlit ficar online (máx. 60s)...
+25/03/2026 18:12:12 [INFO] ============================================================
+25/03/2026 18:12:12 [INFO] INÍCIO DO PROCESSO: 25/03/2026 18:12:12
+25/03/2026 18:12:12 [INFO] ============================================================
+25/03/2026 18:12:12 [INFO] Iniciando Streamlit: enviar_relatorio_dolar.py
+25/03/2026 18:12:15 [INFO] Aguardando servidor Streamlit ficar online (máx. 60s)...
