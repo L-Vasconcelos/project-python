@@ -17,7 +17,7 @@ from datetime import datetime
 # ─── CONFIGURAÇÃO ────────────────────────────────────────────────────────────
 
 # Fonte de dados: arquivo sincronizado pelo OneDrive Desktop
-LOCAL_PATH = r"C:\Users\luisf\OneDrive - Meridional TCS Ind e Com de Oleos S A\Arquivos\Python\importado\historico_precos_quimicos.xlsx"
+LOCAL_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "historico_precos_quimicos.xlsx")
 ONEDRIVE_URL = (
     "https://meridionaltcs-my.sharepoint.com/personal/bi_mtcs_com_br"
     "/Documents/Arquivos/Python/importado/historico_precos_quimicos.xlsx"
