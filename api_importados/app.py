@@ -16,8 +16,8 @@ from datetime import datetime
 
 # ─── CONFIGURAÇÃO ────────────────────────────────────────────────────────────
 
-# Fonte de dados: prioriza arquivo local se existir, senão baixa do OneDrive
-LOCAL_PATH = "historico_precos_quimicos.xlsx"
+# Fonte de dados: arquivo sincronizado pelo OneDrive Desktop
+LOCAL_PATH = r"C:\Users\luisf\OneDrive - Meridional TCS Ind e Com de Oleos S A\Arquivos\Python\importado\historico_precos_quimicos.xlsx"
 ONEDRIVE_URL = (
     "https://meridionaltcs-my.sharepoint.com/personal/bi_mtcs_com_br"
     "/Documents/Arquivos/Python/importado/historico_precos_quimicos.xlsx"
@@ -79,17 +79,14 @@ def _ler_local() -> bytes | None:
 def carregar_dados() -> tuple[pd.DataFrame, str, bool]:
     """
     Retorna (df, fonte_str, mudou).
-    Tenta OneDrive primeiro; fallback para arquivo local.
+    Lê direto do arquivo sincronizado pelo OneDrive Desktop.
     """
     global _cache_hash
 
-    raw = _baixar_onedrive()
-    fonte = "OneDrive"
+    raw = _ler_local()
+    fonte = "OneDrive (local sync)"
     if raw is None:
-        raw = _ler_local()
-        fonte = "Arquivo local"
-    if raw is None:
-        return pd.DataFrame(), "Sem dados", False
+        return pd.DataFrame(), f"Arquivo nao encontrado: {LOCAL_PATH}", False
 
     novo_hash = _hash_bytes(raw)
     mudou = novo_hash != _cache_hash
@@ -112,8 +109,7 @@ def calcular_variacao(df: pd.DataFrame) -> pd.DataFrame:
     data_atual = datas[-1]
     data_ant = datas[-2] if len(datas) > 1 else None
 
-    atual = df[df["Data"] == data_atual][[
-        "Item", "Preco", "Unidade", "Grupo", "Fonte"]].copy()
+    atual = df[df["Data"] == data_atual][["Item", "Preco", "Unidade", "Grupo", "Fonte"]].copy()
     atual.columns = ["Item", "Preco_Atual", "Unidade", "Grupo", "Fonte"]
 
     if data_ant is not None:
@@ -125,8 +121,7 @@ def calcular_variacao(df: pd.DataFrame) -> pd.DataFrame:
         result["Preco_Ant"] = None
 
     result["Var_Pct"] = (
-        (result["Preco_Atual"] - result["Preco_Ant"]) /
-        result["Preco_Ant"] * 100
+        (result["Preco_Atual"] - result["Preco_Ant"]) / result["Preco_Ant"] * 100
     ).round(2)
     result["Var_Abs"] = (result["Preco_Atual"] - result["Preco_Ant"]).round(2)
     result["Data_Atual"] = data_atual
@@ -191,25 +186,21 @@ def card_produto(row: dict) -> html.Div:
                 },
             ),
             html.Div(
-                style={"display": "flex", "justifyContent": "space-between",
-                       "alignItems": "baseline"},
+                style={"display": "flex", "justifyContent": "space-between", "alignItems": "baseline"},
                 children=[
                     html.Span(
                         f"R$ {preco:,.4f}/{unid}",
-                        style={"fontSize": "15px", "fontWeight": "700",
-                               "color": CORES["text"]},
+                        style={"fontSize": "15px", "fontWeight": "700", "color": CORES["text"]},
                     ),
                     html.Span(
                         f"{seta} {var_txt}",
-                        style={"fontSize": "13px",
-                               "fontWeight": "700", "color": var_cor},
+                        style={"fontSize": "13px", "fontWeight": "700", "color": var_cor},
                     ),
                 ],
             ),
             html.Div(
                 row["Fonte"] if not pd.isna(row.get("Fonte", "")) else "",
-                style={"fontSize": "9px", "color": CORES["muted"], "overflow": "hidden",
-                       "textOverflow": "ellipsis", "whiteSpace": "nowrap"},
+                style={"fontSize": "9px", "color": CORES["muted"], "overflow": "hidden", "textOverflow": "ellipsis", "whiteSpace": "nowrap"},
             ),
         ],
     )
@@ -225,8 +216,7 @@ def grafico_grupo(df: pd.DataFrame, grupo: str) -> dcc.Graph:
         serie = df[df["Item"] == item].sort_values("Data")
         if serie.empty:
             continue
-        precos_kg = [preco_por_kg(p, u)[0]
-                     for p, u in zip(serie["Preco"], serie["Unidade"])]
+        precos_kg = [preco_por_kg(p, u)[0] for p, u in zip(serie["Preco"], serie["Unidade"])]
         fig.add_trace(
             go.Scatter(
                 x=serie["Data"],
@@ -246,8 +236,7 @@ def grafico_grupo(df: pd.DataFrame, grupo: str) -> dcc.Graph:
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="'JetBrains Mono', monospace",
-                  size=10, color=CORES["muted"]),
+        font=dict(family="'JetBrains Mono', monospace", size=10, color=CORES["muted"]),
         margin=dict(l=8, r=8, t=8, b=8),
         legend=dict(
             orientation="h",
@@ -314,17 +303,14 @@ app.layout = html.Div(
             children=[
                 html.Div(
                     children=[
-                        html.Span(
-                            "⬡ ", style={"color": CORES["accent"], "fontSize": "18px"}),
+                        html.Span("⬡ ", style={"color": CORES["accent"], "fontSize": "18px"}),
                         html.Span(
                             "CITAÇÕES QUÍMICAS",
-                            style={"fontWeight": "800", "fontSize": "15px",
-                                   "letterSpacing": "0.12em"},
+                            style={"fontWeight": "800", "fontSize": "15px", "letterSpacing": "0.12em"},
                         ),
                         html.Span(
                             " · Importados",
-                            style={
-                                "color": CORES["muted"], "fontSize": "12px", "marginLeft": "6px"},
+                            style={"color": CORES["muted"], "fontSize": "12px", "marginLeft": "6px"},
                         ),
                     ]
                 ),
@@ -338,8 +324,7 @@ app.layout = html.Div(
         # CORPO PRINCIPAL
         html.Div(
             id="corpo",
-            style={"padding": "20px 24px",
-                   "maxWidth": "1600px", "margin": "0 auto"},
+            style={"padding": "20px 24px", "maxWidth": "1600px", "margin": "0 auto"},
         ),
     ],
 )
@@ -400,10 +385,8 @@ def renderizar(json_data):
                 "minWidth": "130px",
             },
             children=[
-                html.Div(label, style={
-                         "fontSize": "9px", "color": CORES["muted"], "letterSpacing": "0.1em", "textTransform": "uppercase"}),
-                html.Div(str(valor), style={
-                         "fontSize": "28px", "fontWeight": "800", "color": cor}),
+                html.Div(label, style={"fontSize": "9px", "color": CORES["muted"], "letterSpacing": "0.1em", "textTransform": "uppercase"}),
+                html.Div(str(valor), style={"fontSize": "28px", "fontWeight": "800", "color": cor}),
             ],
         )
 
@@ -421,21 +404,17 @@ def renderizar(json_data):
                 "flex": "1",
             },
             children=[
-                html.Div(label, style={
-                         "fontSize": "9px", "color": CORES["muted"], "letterSpacing": "0.1em", "textTransform": "uppercase"}),
-                html.Div(row["Item"], style={
-                         "fontSize": "13px", "fontWeight": "700", "color": CORES["text"], "marginTop": "4px"}),
+                html.Div(label, style={"fontSize": "9px", "color": CORES["muted"], "letterSpacing": "0.1em", "textTransform": "uppercase"}),
+                html.Div(row["Item"], style={"fontSize": "13px", "fontWeight": "700", "color": CORES["text"], "marginTop": "4px"}),
                 html.Div(
                     f"R$ {preco:,.4f}/{unid}  ·  {row['Var_Pct']:+.2f}%",
-                    style={"fontSize": "12px",
-                           "color": cor, "marginTop": "2px"},
+                    style={"fontSize": "12px", "color": cor, "marginTop": "2px"},
                 ),
             ],
         )
 
     barra_kpi = html.Div(
-        style={"display": "flex", "gap": "12px", "marginBottom": "20px",
-               "flexWrap": "wrap", "alignItems": "stretch"},
+        style={"display": "flex", "gap": "12px", "marginBottom": "20px", "flexWrap": "wrap", "alignItems": "stretch"},
         children=[
             kpi("PRODUTOS", len(var_df), CORES["text"]),
             kpi("EM ALTA", n_alta, CORES["up"]),
@@ -475,20 +454,16 @@ def renderizar(json_data):
             },
             children=[
                 html.Div(
-                    style={"display": "flex", "alignItems": "center",
-                           "marginBottom": "14px", "gap": "10px"},
+                    style={"display": "flex", "alignItems": "center", "marginBottom": "14px", "gap": "10px"},
                     children=[
-                        html.Span(
-                            "●", style={"color": cor_grupo, "fontSize": "16px"}),
+                        html.Span("●", style={"color": cor_grupo, "fontSize": "16px"}),
                         html.Span(
                             grupo.upper(),
-                            style={"fontWeight": "700", "fontSize": "12px",
-                                   "letterSpacing": "0.1em", "color": CORES["text"]},
+                            style={"fontWeight": "700", "fontSize": "12px", "letterSpacing": "0.1em", "color": CORES["text"]},
                         ),
                         html.Span(
                             f"{len(itens_grupo)} itens",
-                            style={"fontSize": "10px",
-                                   "color": CORES["muted"]},
+                            style={"fontSize": "10px", "color": CORES["muted"]},
                         ),
                     ],
                 ),
@@ -498,13 +473,11 @@ def renderizar(json_data):
                         children=[
                             html.Summary(
                                 "📈 Histórico de evolução",
-                                style={"cursor": "pointer", "fontSize": "11px",
-                                       "color": CORES["muted"], "marginBottom": "8px"},
+                                style={"cursor": "pointer", "fontSize": "11px", "color": CORES["muted"], "marginBottom": "8px"},
                             ),
                             grafico,
                         ],
-                        style={
-                            "borderTop": f"1px solid {CORES['border']}", "paddingTop": "10px"},
+                        style={"borderTop": f"1px solid {CORES['border']}", "paddingTop": "10px"},
                     )
                 ),
             ],
