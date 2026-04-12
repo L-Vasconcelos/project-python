@@ -164,7 +164,7 @@ def collect_industrial_prices():
     for item in CHEMICAL_ITEMS:
         price = None
         unit = DEFAULT_UNITS.get(item, "unidade")
-        currency = "BRL"
+        currency = "USD"
         source = "Estimativa Industrial"
         group = ITEM_GROUPS.get(item, "Outros")
 
@@ -177,19 +177,16 @@ def collect_industrial_prices():
                 unit = data["unit"]
                 if item in PALM_OIL_INDEX_ITEMS:
                     price *= palm_index_factor  # Ajusta conforme o mercado global de oleoquímicos
-                price_brl = price * usd_brl  # Converte para BRL
-                price = price_brl
-                currency = "BRL"
             elif "base_price_brl_drum" in data:
-                price = data["base_price_brl_drum"]
-                currency = "BRL"
+                price = data["base_price_brl_drum"] / usd_brl  # Converte BRL para USD
+                currency = "USD"
                 unit = data["unit"]
             source = data["source"]
             group = data["group"]
         else:
-            # Fallback para itens sem benchmark direto, usando uma estimativa base
-            price = 1500.0 * usd_brl  # Estimativa em USD convertida para BRL
-            currency = "BRL"
+            # Fallback para itens sem benchmark direto
+            price = 1500.0  # Estimativa base em USD
+            currency = "USD"
             unit = DEFAULT_UNITS.get(item, "unidade")
             source = "Estimativa Generica"
             group = ITEM_GROUPS.get(item, "Outros")
