@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ':*)",
+      "Bash(cp \"c:/Users/luisf/OneDrive/Arquivos/Python/historico_precos_quimicos.xlsx\" \"c:/Users/luisf/OneDrive/Arquivos/Python/historico_precos_quimicos_BACKUP_retail_BRL_20260412.xlsx\")",
+      "Bash(rm \"c:/Users/luisf/OneDrive/Arquivos/Python/historico_precos_quimicos.xlsx\")"
+    ]
+  }
+}

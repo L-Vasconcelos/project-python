@@ -189,7 +189,7 @@ def card_produto(row: dict) -> html.Div:
                 style={"display": "flex", "justifyContent": "space-between", "alignItems": "baseline"},
                 children=[
                     html.Span(
-                        f"R$ {preco:,.4f}/{unid}",
+                        f"${preco:,.4f}/{unid}",
                         style={"fontSize": "15px", "fontWeight": "700", "color": CORES["text"]},
                     ),
                     html.Span(
@@ -228,7 +228,7 @@ def grafico_grupo(df: pd.DataFrame, grupo: str) -> dcc.Graph:
                 hovertemplate=(
                     "<b>%{fullData.name}</b><br>"
                     "Data: %{x|%d/%m/%Y}<br>"
-                    "R$ %{y:,.4f}<extra></extra>"
+                    "$%{y:,.4f}<extra></extra>"
                 ),
             )
         )
@@ -256,7 +256,7 @@ def grafico_grupo(df: pd.DataFrame, grupo: str) -> dcc.Graph:
         yaxis=dict(
             gridcolor=CORES["border"],
             linecolor=CORES["border"],
-            tickprefix="R$ ",
+            tickprefix="$",
             tickfont=dict(size=9),
         ),
         hovermode="x unified",
@@ -407,7 +407,7 @@ def renderizar(json_data):
                 html.Div(label, style={"fontSize": "9px", "color": CORES["muted"], "letterSpacing": "0.1em", "textTransform": "uppercase"}),
                 html.Div(row["Item"], style={"fontSize": "13px", "fontWeight": "700", "color": CORES["text"], "marginTop": "4px"}),
                 html.Div(
-                    f"R$ {preco:,.4f}/{unid}  ·  {row['Var_Pct']:+.2f}%",
+                    f"${preco:,.4f}/{unid}  ·  {row['Var_Pct']:+.2f}%",
                     style={"fontSize": "12px", "color": cor, "marginTop": "2px"},
                 ),
             ],
