@@ -92,3 +92,17 @@
 2026-04-10 09:10:49,032 - INFO - Script de coleta de precos finalizado.
 2026-04-12 20:58:58,102 - INFO - Script de coleta de precos V3 (Foco Industrial B2B) iniciado.
 2026-04-12 20:59:00,430 - ERROR - Erro inesperado ao parsear preco do Oleo de Palma: could not convert string to float: 'Crude Oil'
+2026-04-13 09:10:02,615 - INFO - Script de coleta de precos V3 (Foco Industrial B2B) iniciado.
+2026-04-13 09:10:04,699 - ERROR - Erro inesperado ao parsear preco do Oleo de Palma: could not convert string to float: 'Crude Oil'
+2026-04-13 09:10:51,131 - INFO - Backup do arquivo Excel criado em: C:\Users\lsilva\OneDrive - Meridional TCS Ind e Com de Oleos S A\Arquivos\Python\importado\historico_precos_quimicos_backup_20260413091051.xlsx
+2026-04-13 09:10:52,573 - INFO - Novos precos concatenados com o historico existente.
+2026-04-13 09:10:52,928 - INFO - Coleta concluida. Dados atualizados e salvos em C:\Users\lsilva\OneDrive - Meridional TCS Ind e Com de Oleos S A\Arquivos\Python\importado\historico_precos_quimicos.xlsx
+2026-04-13 09:10:52,970 - INFO - Script de coleta de precos finalizado.
+2026-04-14 09:10:03,834 - INFO - Script de coleta de precos V3 (Foco Industrial B2B) iniciado.
+2026-04-14 09:10:06,192 - ERROR - Erro inesperado ao parsear preco do Oleo de Palma: could not convert string to float: 'Crude Oil'
+2026-04-14 09:10:48,256 - INFO - Backup do arquivo Excel criado em: C:\Users\lsilva\OneDrive - Meridional TCS Ind e Com de Oleos S A\Arquivos\Python\importado\historico_precos_quimicos_backup_20260414091048.xlsx
+2026-04-14 09:10:50,292 - INFO - Novos precos concatenados com o historico existente.
+2026-04-14 09:10:50,686 - INFO - Coleta concluida. Dados atualizados e salvos em C:\Users\lsilva\OneDrive - Meridional TCS Ind e Com de Oleos S A\Arquivos\Python\importado\historico_precos_quimicos.xlsx
+2026-04-14 09:10:50,789 - INFO - Script de coleta de precos finalizado.
+2026-04-14 15:25:46,330 - INFO - Tabela [historico_precos_quimicos] verificada/criada com sucesso.
+2026-04-14 15:25:47,141 - INFO - SQL Server: 340 registros inseridos, 0 já existiam (ignorados).

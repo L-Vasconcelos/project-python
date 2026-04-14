@@ -8,10 +8,24 @@ import time
 import random
 import logging
 import shutil
+import pyodbc
+from sqlalchemy import create_engine, text
+import urllib
 
 # --- Configurações --- #
 USER_WINDOWS_EXCEL_PATH = r"C:\Users\lsilva\OneDrive - Meridional TCS Ind e Com de Oleos S A\Arquivos\Python\importado\historico_precos_quimicos.xlsx"
 LOG_FILENAME = "coleta_precos_v3.log"
+
+# --- Configurações SQL Server --- #
+# Ajuste os valores abaixo conforme seu ambiente
+SQL_SERVER   = r"CORPORATIVOMTCS"   # ex: "localhost" ou "servidor\SQLEXPRESS"
+SQL_DATABASE = "historico_precos_quimicos"
+SQL_TABLE    = "historico_precos_quimicos"
+# Autenticação Windows (Trusted Connection = True) — sem usuário/senha
+SQL_USE_WINDOWS_AUTH = True
+# Autenticação SQL Server — preencha somente se SQL_USE_WINDOWS_AUTH = False
+SQL_USER     = ""
+SQL_PASSWORD = ""
 
 # Lista de itens fornecida pelo usuário
 CHEMICAL_ITEMS = [
@@ -205,6 +219,98 @@ def collect_industrial_prices():
     return pd.DataFrame(prices_data)
 
 
+# --- SQL Server --- #
+
+def get_sqlserver_engine():
+    """Cria e retorna um engine SQLAlchemy para o SQL Server."""
+    if SQL_USE_WINDOWS_AUTH:
+        conn_str = (
+            f"DRIVER={{ODBC Driver 17 for SQL Server}};"
+            f"SERVER={SQL_SERVER};"
+            f"DATABASE={SQL_DATABASE};"
+            f"Trusted_Connection=yes;"
+        )
+    else:
+        conn_str = (
+            f"DRIVER={{ODBC Driver 17 for SQL Server}};"
+            f"SERVER={SQL_SERVER};"
+            f"DATABASE={SQL_DATABASE};"
+            f"UID={SQL_USER};"
+            f"PWD={SQL_PASSWORD};"
+        )
+    params = urllib.parse.quote_plus(conn_str)
+    engine = create_engine(f"mssql+pyodbc:///?odbc_connect={params}", fast_executemany=True)
+    return engine
+
+
+def ensure_table_exists(engine):
+    """Cria a tabela no SQL Server se ela ainda não existir."""
+    ddl = f"""
+    IF NOT EXISTS (
+        SELECT 1 FROM INFORMATION_SCHEMA.TABLES
+        WHERE TABLE_NAME = '{SQL_TABLE}'
+    )
+    BEGIN
+        CREATE TABLE [{SQL_TABLE}] (
+            Id          INT IDENTITY(1,1) PRIMARY KEY,
+            Data        DATE            NOT NULL,
+            Item        NVARCHAR(150)   NOT NULL,
+            Preco       FLOAT           NULL,
+            Unidade     NVARCHAR(50)    NULL,
+            Moeda       NVARCHAR(10)    NULL,
+            Grupo       NVARCHAR(100)   NULL,
+            Fonte       NVARCHAR(255)   NULL,
+            DataInsercao DATETIME       NOT NULL DEFAULT GETDATE(),
+            CONSTRAINT UQ_{SQL_TABLE}_Data_Item UNIQUE (Data, Item)
+        )
+    END
+    """
+    with engine.begin() as conn:
+        conn.execute(text(ddl))
+    logging.info(f"Tabela [{SQL_TABLE}] verificada/criada com sucesso.")
+
+
+def upsert_to_sqlserver(df: pd.DataFrame, engine):
+    """
+    Insere novos registros no SQL Server.
+    Ignora linhas que já existam para o mesmo par (Data, Item) — sem duplicatas.
+    """
+    if df.empty:
+        logging.warning("DataFrame vazio, nada a inserir no SQL Server.")
+        return
+
+    rows_inserted = 0
+    rows_skipped  = 0
+
+    insert_sql = text(f"""
+        IF NOT EXISTS (
+            SELECT 1 FROM [{SQL_TABLE}]
+            WHERE Data = :Data AND Item = :Item
+        )
+        INSERT INTO [{SQL_TABLE}] (Data, Item, Preco, Unidade, Moeda, Grupo, Fonte)
+        VALUES (:Data, :Item, :Preco, :Unidade, :Moeda, :Grupo, :Fonte)
+    """)
+
+    with engine.begin() as conn:
+        for _, row in df.iterrows():
+            result = conn.execute(insert_sql, {
+                "Data":    row["Data"],
+                "Item":    row["Item"],
+                "Preco":   row["Preco"],
+                "Unidade": row["Unidade"],
+                "Moeda":   row["Moeda"],
+                "Grupo":   row["Grupo"],
+                "Fonte":   row["Fonte"],
+            })
+            if result.rowcount > 0:
+                rows_inserted += 1
+            else:
+                rows_skipped += 1
+
+    logging.info(f"SQL Server: {rows_inserted} registros inseridos, {rows_skipped} já existiam (ignorados).")
+    print(f"SQL Server: {rows_inserted} registros inseridos, {rows_skipped} já existiam.")
+
+
 # --- Lógica Principal --- #
 if __name__ == "__main__":
     logging.info(
@@ -268,5 +374,14 @@ if __name__ == "__main__":
         logging.error(f"Erro ao salvar o arquivo Excel: {e}")
         print(
             f"\nERRO: Nao foi possivel salvar o arquivo Excel em {output_excel_filename}. Verifique permissoes ou se o arquivo esta aberto.")
+
+    # --- Gravação no SQL Server --- #
+    try:
+        engine = get_sqlserver_engine()
+        ensure_table_exists(engine)
+        upsert_to_sqlserver(df_new_prices, engine)
+    except Exception as e:
+        logging.error(f"Erro ao gravar no SQL Server: {e}")
+        print(f"\nAVISO: Nao foi possivel gravar no SQL Server: {e}")
 
     logging.info("Script de coleta de precos finalizado.")
