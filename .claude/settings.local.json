@@ -7,7 +7,15 @@
       "Read(//c/Users/lsilva/.claude/skills/ui-ux-pro-max/**)",
       "Bash(python scripts/search.py \"industrial pricing dashboard dark minimalist data table compact\" --design-system -p \"Pricing Importados\")",
       "Bash(python scripts/search.py \"compact table dashboard print-friendly fixed viewport\" --domain ux -n 5)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(netstat -ano)",
+      "Bash(\"C:/Users/lsilva/OneDrive/Arquivos/Python/.venv/Scripts/python.exe\" -c \"import dashboard_pricing_st\")",
+      "Bash(\"C:/Users/lsilva/OneDrive/Arquivos/Python/.venv/Scripts/pip.exe\" install:*)",
+      "Bash(\"C:/Users/lsilva/AppData/Local/Programs/Python/Python313/python.exe\" -m pip install streamlit --target \"C:/Users/lsilva/OneDrive/Arquivos/Python/.venv/Lib/site-packages\")",
+      "Bash(\"C:/Users/lsilva/OneDrive/Arquivos/Python/.venv/Scripts/python.exe\" -m ensurepip --upgrade)",
+      "Bash(\"C:/Users/lsilva/OneDrive/Arquivos/Python/.venv/Scripts/python.exe\" -m pip install --upgrade pip)",
+      "Bash(C:/Users/lsilva/OneDrive/Arquivos/Python/.venv/Scripts/python.exe:*)",
+      "Bash(\"C:/Users/lsilva/AppData/Local/Programs/Python/Python313/python.exe\" -m pip install pyodbc --target \"C:/Users/lsilva/OneDrive/Arquivos/Python/.venv/Lib/site-packages\")"
     ]
   }
 }

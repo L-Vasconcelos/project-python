@@ -393,7 +393,7 @@ def gerar_painel_pricing(df_raw: pd.DataFrame) -> None:
                     }])
                 )
 
-                st.dataframe(styler, use_container_width=True, hide_index=True)
+                st.dataframe(styler, width="stretch", hide_index=True)
 
     renderizar_grupos(col_esq, grupos_esq)
     renderizar_grupos(col_dir, grupos_dir)

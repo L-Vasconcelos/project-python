@@ -1,0 +1,7 @@
+
+  You can now view your Streamlit app in your browser.
+
+  URL: http://127.0.0.1:8502
+
+c:\Users\lsilva\OneDrive\Arquivos\Python\api_importados\dashboard_pricing_st.py:202: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  df = pd.read_sql(query, conn)
