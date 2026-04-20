@@ -122,3 +122,19 @@
 2026-04-16 09:11:10,708 - INFO - Tabela [historico_precos_quimicos] verificada/criada com sucesso.
 2026-04-16 09:11:11,021 - INFO - SQL Server: 20 registros inseridos, 0 já existiam (ignorados).
 2026-04-16 09:11:11,023 - INFO - Script de coleta de precos finalizado.
+2026-04-17 09:10:16,381 - INFO - Script de coleta de precos V3 (Foco Industrial B2B) iniciado.
+2026-04-17 09:10:19,083 - ERROR - Erro inesperado ao parsear preco do Oleo de Palma: could not convert string to float: 'Crude Oil'
+2026-04-17 09:11:01,923 - INFO - Backup do arquivo Excel criado em: C:\Users\lsilva\OneDrive - Meridional TCS Ind e Com de Oleos S A\Arquivos\Python\importado\historico_precos_quimicos_backup_20260417091101.xlsx
+2026-04-17 09:11:04,177 - INFO - Novos precos concatenados com o historico existente.
+2026-04-17 09:11:04,626 - INFO - Coleta concluida. Dados atualizados e salvos em C:\Users\lsilva\OneDrive - Meridional TCS Ind e Com de Oleos S A\Arquivos\Python\importado\historico_precos_quimicos.xlsx
+2026-04-17 09:11:05,894 - INFO - Tabela [historico_precos_quimicos] verificada/criada com sucesso.
+2026-04-17 09:11:06,228 - INFO - SQL Server: 20 registros inseridos, 0 já existiam (ignorados).
+2026-04-17 09:11:06,229 - INFO - Script de coleta de precos finalizado.
+2026-04-20 09:10:02,945 - INFO - Script de coleta de precos V3 (Foco Industrial B2B) iniciado.
+2026-04-20 09:10:05,520 - ERROR - Erro inesperado ao parsear preco do Oleo de Palma: could not convert string to float: 'Crude Oil'
+2026-04-20 09:10:46,846 - INFO - Backup do arquivo Excel criado em: C:\Users\lsilva\OneDrive - Meridional TCS Ind e Com de Oleos S A\Arquivos\Python\importado\historico_precos_quimicos_backup_20260420091046.xlsx
+2026-04-20 09:10:48,492 - INFO - Novos precos concatenados com o historico existente.
+2026-04-20 09:10:49,002 - INFO - Coleta concluida. Dados atualizados e salvos em C:\Users\lsilva\OneDrive - Meridional TCS Ind e Com de Oleos S A\Arquivos\Python\importado\historico_precos_quimicos.xlsx
+2026-04-20 09:10:49,953 - INFO - Tabela [historico_precos_quimicos] verificada/criada com sucesso.
+2026-04-20 09:10:50,245 - INFO - SQL Server: 20 registros inseridos, 0 já existiam (ignorados).
+2026-04-20 09:10:50,248 - INFO - Script de coleta de precos finalizado.
