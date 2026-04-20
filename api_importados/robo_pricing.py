@@ -40,16 +40,18 @@ from selenium.webdriver.support import expected_conditions as EC
 # CONFIGURAÇÕES
 # ---------------------------------------------------------------------------
 
-PASTA_DO_SCRIPT            = os.path.dirname(os.path.abspath(__file__))
-NOME_ARQUIVO_DASHBOARD     = "dashboard_pricing_st.py"
-CAMINHO_COMPLETO_DASHBOARD = os.path.join(PASTA_DO_SCRIPT, NOME_ARQUIVO_DASHBOARD)
+PASTA_DO_SCRIPT = os.path.dirname(os.path.abspath(__file__))
+NOME_ARQUIVO_DASHBOARD = "dashboard_pricing_st.py"
+CAMINHO_COMPLETO_DASHBOARD = os.path.join(
+    PASTA_DO_SCRIPT, NOME_ARQUIVO_DASHBOARD)
 
-PORTA_STREAMLIT = "8502"          # porta diferente do dashboard de câmbio (8501)
-URL_DASHBOARD   = f"http://127.0.0.1:{PORTA_STREAMLIT}"
+# porta diferente do dashboard de câmbio (8501)
+PORTA_STREAMLIT = "8502"
+URL_DASHBOARD = f"http://127.0.0.1:{PORTA_STREAMLIT}"
 
-EMAIL_REMETENTE    = "bi@mtcs.com.br"
+EMAIL_REMETENTE = "bi@mtcs.com.br"
 EMAIL_DESTINATARIO = "bi@mtcs.com.br"
-SENHA_EMAIL        = os.getenv("SENHA_BI_EMAIL")
+SENHA_EMAIL = os.getenv("SENHA_BI_EMAIL")
 
 
 # ---------------------------------------------------------------------------
@@ -116,7 +118,8 @@ def iniciar_streamlit():
         "--server.address",  "127.0.0.1",
     ]
 
-    CAMINHO_LOG_STREAMLIT = os.path.join(PASTA_DO_SCRIPT, "log_streamlit_pricing.txt")
+    CAMINHO_LOG_STREAMLIT = os.path.join(
+        PASTA_DO_SCRIPT, "log_streamlit_pricing.txt")
     arquivo_log_streamlit = open(CAMINHO_LOG_STREAMLIT, "w", encoding="utf-8")
 
     processo = subprocess.Popen(
@@ -142,7 +145,8 @@ def iniciar_streamlit():
             resultado = sock.connect_ex(("127.0.0.1", int(PORTA_STREAMLIT)))
             sock.close()
             if resultado == 0:
-                log.info(f"Streamlit online em {round(time.time() - inicio, 1)}s")
+                log.info(
+                    f"Streamlit online em {round(time.time() - inicio, 1)}s")
                 return processo
         except OSError:
             pass
@@ -186,7 +190,8 @@ def tirar_print_validado() -> bytes | None:
         # VALIDAÇÃO 1 — Estrutura do Streamlit carregada
         # ---------------------------------------------------------------
         log.info("Validação 1/3: aguardando estrutura do Streamlit...")
-        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.stApp")))
+        wait.until(EC.presence_of_element_located(
+            (By.CSS_SELECTOR, "div.stApp")))
         log.info("Validação 1/3: OK")
 
         # ---------------------------------------------------------------
@@ -198,7 +203,8 @@ def tirar_print_validado() -> bytes | None:
                 (By.CSS_SELECTOR, "div[data-testid='stDataFrame']")))
             log.info("Validação 2/3: OK")
         except Exception:
-            log.error("Validação 2/3 FALHOU: tabelas não renderizaram — abortando")
+            log.error(
+                "Validação 2/3 FALHOU: tabelas não renderizaram — abortando")
             driver.quit()
             return None
 
@@ -207,7 +213,8 @@ def tirar_print_validado() -> bytes | None:
         # ---------------------------------------------------------------
         log.info("Validação 3/3: aguardando marcador de conclusão do dashboard...")
         try:
-            wait.until(EC.presence_of_element_located((By.ID, "dashboard-ready")))
+            wait.until(EC.presence_of_element_located(
+                (By.ID, "dashboard-ready")))
             log.info("Validação 3/3: OK — dashboard READY confirmado")
         except Exception:
             if driver.find_elements(By.ID, "dashboard-error"):
@@ -216,7 +223,8 @@ def tirar_print_validado() -> bytes | None:
                     "(falha de conexão com o banco ou tabela vazia)"
                 )
             else:
-                log.error("Validação 3/3 FALHOU: timeout — dashboard não ficou pronto")
+                log.error(
+                    "Validação 3/3 FALHOU: timeout — dashboard não ficou pronto")
             driver.quit()
             return None
 
@@ -225,7 +233,8 @@ def tirar_print_validado() -> bytes | None:
         # ---------------------------------------------------------------
         time.sleep(4)
 
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        driver.execute_script(
+            "window.scrollTo(0, document.body.scrollHeight);")
         time.sleep(2)
         driver.execute_script("window.scrollTo(0, 0);")
         time.sleep(1)
@@ -272,8 +281,8 @@ def enviar_email(img_data: bytes | None) -> bool:
 
     msg = MIMEMultipart("related")
     msg["Subject"] = f"Pricing Importados — {data_hoje}"
-    msg["From"]    = EMAIL_REMETENTE
-    msg["To"]      = EMAIL_DESTINATARIO
+    msg["From"] = EMAIL_REMETENTE
+    msg["To"] = EMAIL_DESTINATARIO
 
     html_body = f"""
     <html>
@@ -314,7 +323,8 @@ def enviar_email(img_data: bytes | None) -> bool:
         return True
 
     except smtplib.SMTPAuthenticationError:
-        log.error("Falha de autenticação SMTP — verifique a variável SENHA_BI_EMAIL")
+        log.error(
+            "Falha de autenticação SMTP — verifique a variável SENHA_BI_EMAIL")
         return False
     except smtplib.SMTPException as e:
         log.error(f"Erro SMTP ao enviar e-mail: {e}")
@@ -350,7 +360,8 @@ def encerrar_streamlit(processo):
 
 def main():
     log.info("=" * 60)
-    log.info(f"INÍCIO DO PROCESSO: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+    log.info(
+        f"INÍCIO DO PROCESSO: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
     log.info("=" * 60)
 
     processo = iniciar_streamlit()
@@ -360,7 +371,7 @@ def main():
         sys.exit(1)
 
     try:
-        imagem  = tirar_print_validado()
+        imagem = tirar_print_validado()
         sucesso = enviar_email(imagem)
 
         if sucesso:
