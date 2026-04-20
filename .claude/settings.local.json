@@ -3,7 +3,11 @@
     "allow": [
       "Bash(python -c ':*)",
       "Bash(cp \"c:/Users/luisf/OneDrive/Arquivos/Python/historico_precos_quimicos.xlsx\" \"c:/Users/luisf/OneDrive/Arquivos/Python/historico_precos_quimicos_BACKUP_retail_BRL_20260412.xlsx\")",
-      "Bash(rm \"c:/Users/luisf/OneDrive/Arquivos/Python/historico_precos_quimicos.xlsx\")"
+      "Bash(rm \"c:/Users/luisf/OneDrive/Arquivos/Python/historico_precos_quimicos.xlsx\")",
+      "Read(//c/Users/lsilva/.claude/skills/ui-ux-pro-max/**)",
+      "Bash(python scripts/search.py \"industrial pricing dashboard dark minimalist data table compact\" --design-system -p \"Pricing Importados\")",
+      "Bash(python scripts/search.py \"compact table dashboard print-friendly fixed viewport\" --domain ux -n 5)",
+      "Bash(python:*)"
     ]
   }
 }
