@@ -80,35 +80,53 @@ log = logging.getLogger(__name__)
 # ETAPA 1 — INICIAR STREAMLIT
 # ---------------------------------------------------------------------------
 
-def iniciar_streamlit():
-    """
-    Inicia o servidor Streamlit e aguarda até ficar online (máx. 60s).
-    Retorna o objeto Popen do processo, ou None em caso de falha.
-    """
-    log.info(f"Iniciando Streamlit: {NOME_ARQUIVO_DASHBOARD}")
+def _matar_processo_na_porta(porta: int):
+    """Encerra qualquer processo que esteja ocupando a porta informada."""
+    try:
+        resultado = subprocess.run(
+            ["netstat", "-ano"],
+            capture_output=True, text=True
+        )
+        for linha in resultado.stdout.splitlines():
+            if f":{porta}" in linha and "LISTENING" in linha:
+                partes = linha.split()
+                pid = partes[-1]
+                subprocess.run(
+                    ["taskkill", "/F", "/PID", pid],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                )
+                log.info(f"Processo PID {pid} encerrado (porta {porta} liberada)")
+    except Exception:
+        pass
 
+
+def _aguardar_porta_livre(porta: int, timeout: int = 30):
+    """Aguarda até a porta ficar disponível (não ocupada)."""
+    inicio = time.time()
+    while time.time() - inicio < timeout:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(1)
+        resultado = sock.connect_ex(("127.0.0.1", porta))
+        sock.close()
+        if resultado != 0:
+            return True
+        time.sleep(2)
+    log.warning(f"Porta {porta} ainda ocupada após {timeout}s")
+    return False
+
+
+def _tentar_iniciar_streamlit() -> "subprocess.Popen | None":
+    """
+    Tenta iniciar o Streamlit uma vez.
+    Retorna o processo se ficar online em até 120s, ou None.
+    """
     if not os.path.exists(CAMINHO_COMPLETO_DASHBOARD):
         log.error(f"Arquivo não encontrado: {CAMINHO_COMPLETO_DASHBOARD}")
         return None
 
-    # Encerra instâncias anteriores para evitar conflito de porta
-    try:
-        if os.name == "nt":
-            subprocess.run(
-                ["wmic", "process", "where",
-                 f"commandline like '%streamlit%' and commandline like '%{NOME_ARQUIVO_DASHBOARD}%'",
-                 "delete"],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            )
-        else:
-            subprocess.run(
-                ["pkill", "-f", NOME_ARQUIVO_DASHBOARD],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            )
-    except Exception:
-        pass
-
-    time.sleep(2)
+    # Encerra instâncias anteriores e libera a porta
+    _matar_processo_na_porta(int(PORTA_STREAMLIT))
+    _aguardar_porta_livre(int(PORTA_STREAMLIT), timeout=30)
 
     comando = [
         sys.executable, "-m", "streamlit", "run",
@@ -128,11 +146,11 @@ def iniciar_streamlit():
         stderr=arquivo_log_streamlit,
     )
 
-    log.info("Aguardando servidor Streamlit ficar online (máx. 60s)...")
+    log.info("Aguardando servidor Streamlit ficar online (máx. 120s)...")
     inicio = time.time()
     time.sleep(8)
 
-    while time.time() - inicio < 60:
+    while time.time() - inicio < 120:
         if processo.poll() is not None:
             log.error(
                 f"Streamlit encerrou inesperadamente (código {processo.returncode}). "
@@ -152,8 +170,28 @@ def iniciar_streamlit():
             pass
         time.sleep(2)
 
-    log.error("Timeout: Streamlit não ficou online em 60 segundos")
+    log.error("Timeout: Streamlit não ficou online em 120 segundos")
     processo.terminate()
+    return None
+
+
+def iniciar_streamlit():
+    """
+    Inicia o servidor Streamlit com até 2 tentativas.
+    Retorna o objeto Popen do processo, ou None em caso de falha.
+    """
+    log.info(f"Iniciando Streamlit: {NOME_ARQUIVO_DASHBOARD}")
+
+    for tentativa in range(1, 3):
+        if tentativa > 1:
+            log.warning(f"Tentativa {tentativa}/2 — aguardando 20s antes de reiniciar...")
+            time.sleep(20)
+
+        processo = _tentar_iniciar_streamlit()
+        if processo:
+            return processo
+        log.error(f"Tentativa {tentativa}/2 falhou")
+
     return None
 
 

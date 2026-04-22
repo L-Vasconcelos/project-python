@@ -138,3 +138,11 @@
 2026-04-20 09:10:49,953 - INFO - Tabela [historico_precos_quimicos] verificada/criada com sucesso.
 2026-04-20 09:10:50,245 - INFO - SQL Server: 20 registros inseridos, 0 já existiam (ignorados).
 2026-04-20 09:10:50,248 - INFO - Script de coleta de precos finalizado.
+2026-04-22 09:10:06,344 - INFO - Script de coleta de precos V3 (Foco Industrial B2B) iniciado.
+2026-04-22 09:10:10,568 - ERROR - Erro inesperado ao parsear preco do Oleo de Palma: could not convert string to float: 'Crude Oil'
+2026-04-22 09:10:46,521 - INFO - Backup do arquivo Excel criado em: C:\Users\lsilva\OneDrive - Meridional TCS Ind e Com de Oleos S A\Arquivos\Python\importado\historico_precos_quimicos_backup_20260422091046.xlsx
+2026-04-22 09:10:48,139 - INFO - Novos precos concatenados com o historico existente.
+2026-04-22 09:10:48,554 - INFO - Coleta concluida. Dados atualizados e salvos em C:\Users\lsilva\OneDrive - Meridional TCS Ind e Com de Oleos S A\Arquivos\Python\importado\historico_precos_quimicos.xlsx
+2026-04-22 09:10:49,569 - INFO - Tabela [historico_precos_quimicos] verificada/criada com sucesso.
+2026-04-22 09:10:49,859 - INFO - SQL Server: 20 registros inseridos, 0 já existiam (ignorados).
+2026-04-22 09:10:49,860 - INFO - Script de coleta de precos finalizado.

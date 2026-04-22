@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "C:\Users\lsilva\OneDrive\Arquivos\Python\api_importados\robo_pricing.py", line 32, in <module>
+    from selenium import webdriver
+ModuleNotFoundError: No module named 'selenium'
+Codigo de saida: 1 
+Traceback (most recent call last):
+  File "C:\Users\lsilva\OneDrive\Arquivos\Python\api_importados\robo_pricing.py", line 32, in <module>
+    from selenium import webdriver
+ModuleNotFoundError: No module named 'selenium'
+Codigo de saida: 1 
