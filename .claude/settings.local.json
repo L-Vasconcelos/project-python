@@ -15,7 +15,11 @@
       "Bash(\"C:/Users/lsilva/OneDrive/Arquivos/Python/.venv/Scripts/python.exe\" -m ensurepip --upgrade)",
       "Bash(\"C:/Users/lsilva/OneDrive/Arquivos/Python/.venv/Scripts/python.exe\" -m pip install --upgrade pip)",
       "Bash(C:/Users/lsilva/OneDrive/Arquivos/Python/.venv/Scripts/python.exe:*)",
-      "Bash(\"C:/Users/lsilva/AppData/Local/Programs/Python/Python313/python.exe\" -m pip install pyodbc --target \"C:/Users/lsilva/OneDrive/Arquivos/Python/.venv/Lib/site-packages\")"
+      "Bash(\"C:/Users/lsilva/AppData/Local/Programs/Python/Python313/python.exe\" -m pip install pyodbc --target \"C:/Users/lsilva/OneDrive/Arquivos/Python/.venv/Lib/site-packages\")",
+      "Bash(C:\\\\Users\\\\lsilva\\\\OneDrive\\\\Arquivos\\\\Python\\\\.venv\\\\Scripts\\\\pip.exe install:*)",
+      "Bash(\"C:\\\\Users\\\\lsilva\\\\OneDrive\\\\Arquivos\\\\Python\\\\.venv\\\\Scripts\\\\python.exe\" -c \"import selenium; print\\(selenium.__version__\\)\")",
+      "Bash(C:\\\\Users\\\\lsilva\\\\OneDrive\\\\Arquivos\\\\Python\\\\.venv\\\\Scripts\\\\python.exe:*)",
+      "Bash(where python:*)"
     ]
   }
 }
