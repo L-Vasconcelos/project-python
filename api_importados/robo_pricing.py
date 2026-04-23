@@ -95,7 +95,8 @@ def _matar_processo_na_porta(porta: int):
                     ["taskkill", "/F", "/PID", pid],
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                 )
-                log.info(f"Processo PID {pid} encerrado (porta {porta} liberada)")
+                log.info(
+                    f"Processo PID {pid} encerrado (porta {porta} liberada)")
     except Exception:
         pass
 
@@ -184,7 +185,8 @@ def iniciar_streamlit():
 
     for tentativa in range(1, 3):
         if tentativa > 1:
-            log.warning(f"Tentativa {tentativa}/2 — aguardando 20s antes de reiniciar...")
+            log.warning(
+                f"Tentativa {tentativa}/2 — aguardando 20s antes de reiniciar...")
             time.sleep(20)
 
         processo = _tentar_iniciar_streamlit()
