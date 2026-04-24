@@ -1,7 +1,7 @@
 """
 Dashboard Streamlit — Pricing Importados
 Fonte: SQL Server (CORPORATIVOMTCS · historico_precos_quimicos)
-Versão: 2.0 — Dark OLED · Fira Code · Layout Compacto
+Versão: 2.1 — Dark OLED · Fira Code · Layout Compacto
 """
 
 import streamlit as st
@@ -9,6 +9,8 @@ import pandas as pd
 import pyodbc
 from datetime import datetime
 import time
+
+from utils import GRUPO_COR, preco_por_kg, calcular_variacao
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Pricing · Importados", layout="wide")
@@ -169,23 +171,34 @@ SQL_SERVER   = "CORPORATIVOMTCS"
 SQL_DATABASE = "historico_precos_quimicos"
 SQL_TABLE    = "historico_precos_quimicos"
 
-GRUPO_COR = {
-    "Ácidos":                   "#06b6d4",
-    "Álcoois":                  "#8b5cf6",
-    "Outros Químicos":          "#f59e0b",
-    "Polímeros/PEGs":           "#10b981",
-    "Tensoativos/Polisorbatos": "#f43f5e",
-    "Edulcorantes/Outros":      "#fb923c",
-}
-
 
 # ---------------------------------------------------------------------------
 # CONEXÃO COM BANCO DE DADOS
 # ---------------------------------------------------------------------------
 
-def carregar_dados() -> pd.DataFrame | None:
+def _get_odbc_driver() -> str:
+    """Seleciona o driver ODBC do SQL Server disponível (prefere v18, aceita v17)."""
+    available = pyodbc.drivers()
+    for driver in ("ODBC Driver 18 for SQL Server", "ODBC Driver 17 for SQL Server"):
+        if driver in available:
+            return driver
+    raise RuntimeError(
+        f"Nenhum driver ODBC do SQL Server encontrado. Disponíveis: {available}"
+    )
+
+
+def carregar_dados() -> tuple[pd.DataFrame | None, str | None]:
+    """
+    Retorna (df, None) em caso de sucesso ou (None, mensagem_de_erro) em falha.
+    Separa a lógica de dados da camada de apresentação.
+    """
+    try:
+        driver = _get_odbc_driver()
+    except RuntimeError as e:
+        return None, str(e)
+
     dados_conexao = (
-        "Driver={ODBC Driver 17 for SQL Server};"
+        f"Driver={{{driver}}};"
         f"Server={SQL_SERVER};"
         f"Database={SQL_DATABASE};"
         "Trusted_Connection=yes;"
@@ -198,61 +211,20 @@ def carregar_dados() -> pd.DataFrame | None:
     ultimo_erro = None
     for tentativa in range(1, 3):
         try:
-            conn = pyodbc.connect(dados_conexao, timeout=15)
-            df = pd.read_sql(query, conn)
-            conn.close()
+            with pyodbc.connect(dados_conexao, timeout=15) as conn:
+                df = pd.read_sql(query, conn)
             if df.empty:
-                st.error(f"TABELA VAZIA: {SQL_TABLE} não retornou registros.")
-                return None
-            df["Data"] = pd.to_datetime(df["Data"]).dt.normalize()  # remove hora, mantém só a data
+                return None, f"TABELA VAZIA: {SQL_TABLE} não retornou registros."
+            df["Data"] = pd.to_datetime(df["Data"]).dt.normalize()
             df = df.sort_values("Data")
-            df = df.drop_duplicates(subset=["Data", "Item"], keep="last")  # 1 entrada por dia/item
-            return df
+            df = df.drop_duplicates(subset=["Data", "Item"], keep="last")
+            return df, None
         except Exception as e:
             ultimo_erro = e
             if tentativa < 2:
                 time.sleep(5)
-    st.error(f"ERRO DE CONEXÃO após 2 tentativas: {ultimo_erro}")
-    return None
 
-
-# ---------------------------------------------------------------------------
-# LÓGICA DE NEGÓCIO
-# ---------------------------------------------------------------------------
-
-def preco_por_kg(preco, unidade):
-    if str(unidade).upper() == "MT":
-        return round(preco / 1000, 4), "kg"
-    return round(preco, 4), unidade
-
-
-def calcular_variacao(df: pd.DataFrame) -> pd.DataFrame:
-    if df.empty:
-        return df
-    datas   = sorted(df["Data"].unique())
-    d_atual = datas[-1]
-    d_ant   = datas[-2] if len(datas) > 1 else None
-
-    atual = df[df["Data"] == d_atual][
-        ["Item", "Preco", "Unidade", "Grupo", "Fonte"]].copy()
-    atual.columns = ["Item", "Preco_Atual", "Unidade", "Grupo", "Fonte"]
-
-    if d_ant is not None:
-        ant = df[df["Data"] == d_ant][["Item", "Preco"]].rename(
-            columns={"Preco": "Preco_Ant"})
-        result = atual.merge(ant, on="Item", how="left")
-    else:
-        result = atual.copy()
-        result["Preco_Ant"] = None
-
-    result["Var_Pct"] = (
-        (result["Preco_Atual"] - result["Preco_Ant"]) /
-        result["Preco_Ant"] * 100
-    ).round(2)
-    result["Var_Abs"] = (result["Preco_Atual"] - result["Preco_Ant"]).round(2)
-    result["Data_Ref"] = d_atual
-    result["Data_Ant"] = d_ant
-    return result.sort_values(["Grupo", "Item"]).reset_index(drop=True)
+    return None, f"ERRO DE CONEXÃO após 2 tentativas: {ultimo_erro}"
 
 
 # ---------------------------------------------------------------------------
@@ -413,14 +385,15 @@ def gerar_painel_pricing(df_raw: pd.DataFrame) -> None:
 # EXECUÇÃO PRINCIPAL
 # ---------------------------------------------------------------------------
 
-df = carregar_dados()
-if df is not None:
+df, erro = carregar_dados()
+
+if erro:
+    st.error(erro)
+    st.markdown('<div id="dashboard-error"></div>', unsafe_allow_html=True)
+else:
     gerar_painel_pricing(df)
     # Marcador lido pelo robô para confirmar que o dashboard carregou com sucesso
     st.markdown('<div id="dashboard-ready"></div>', unsafe_allow_html=True)
-else:
-    # Marcador de falha — robô aborta o envio do e-mail
-    st.markdown('<div id="dashboard-error"></div>', unsafe_allow_html=True)
-
-# Auto-refresh a cada 60 segundos (via browser, sem bloquear a thread)
-st.markdown('<meta http-equiv="refresh" content="60">', unsafe_allow_html=True)
+    # Auto-refresh a cada 60 segundos
+    time.sleep(60)
+    st.rerun()

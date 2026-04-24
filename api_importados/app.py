@@ -8,16 +8,23 @@ Acesso: http://localhost:8050
 import os
 import io
 import hashlib
+import logging
 import requests
 import pandas as pd
-from dash import Dash, dcc, html, Input, Output, callback_context
+from dash import Dash, dcc, html, Input, Output
 import plotly.graph_objects as go
 from datetime import datetime
 
+from utils import GRUPO_COR, preco_por_kg, calcular_variacao
+
 # ─── CONFIGURAÇÃO ────────────────────────────────────────────────────────────
 
-# Fonte de dados: arquivo sincronizado pelo OneDrive Desktop
-LOCAL_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "historico_precos_quimicos.xlsx")
+# Arquivo sincronizado pelo cliente OneDrive Desktop
+LOCAL_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "historico_precos_quimicos.xlsx"
+)
+# Fallback: tenta baixar diretamente do SharePoint se o arquivo local não existir
 ONEDRIVE_URL = (
     "https://meridionaltcs-my.sharepoint.com/personal/bi_mtcs_com_br"
     "/Documents/Arquivos/Python/importado/historico_precos_quimicos.xlsx"
@@ -26,6 +33,8 @@ ONEDRIVE_URL = (
 
 # Polling: verifica mudança no arquivo a cada N segundos
 POLL_INTERVAL_MS = 30_000  # 30 segundos
+
+log = logging.getLogger(__name__)
 
 # ─── PALETA ──────────────────────────────────────────────────────────────────
 
@@ -40,18 +49,13 @@ CORES = {
     "up":        "#10b981",
     "down":      "#f43f5e",
     "neutral":   "#94a3b8",
-    "grupos": {
-        "Ácidos":                  "#06b6d4",
-        "Álcoois":                 "#8b5cf6",
-        "Outros Químicos":         "#f59e0b",
-        "Polímeros/PEGs":          "#10b981",
-        "Tensoativos/Polisorbatos": "#f43f5e",
-        "Edulcorantes/Outros":     "#fb923c",
-    },
+    "grupos":    GRUPO_COR,  # compartilhado via utils.py
 }
 
 # ─── DADOS ───────────────────────────────────────────────────────────────────
 
+# Nota: _cache_hash é estado global — funciona corretamente em processo único.
+# Em deploys multi-worker (Gunicorn), substituir por cache externo (Redis/disco).
 _cache_hash = None
 
 
@@ -60,12 +64,14 @@ def _hash_bytes(data: bytes) -> str:
 
 
 def _baixar_onedrive() -> bytes | None:
+    """Tenta baixar o arquivo direto do SharePoint (requer link público ou autenticação)."""
     try:
         r = requests.get(ONEDRIVE_URL, timeout=15)
         if r.status_code == 200:
             return r.content
-    except Exception:
-        pass
+        log.warning(f"Download OneDrive retornou status {r.status_code}")
+    except Exception as e:
+        log.warning(f"Falha ao baixar do OneDrive: {e}")
     return None
 
 
@@ -79,14 +85,20 @@ def _ler_local() -> bytes | None:
 def carregar_dados() -> tuple[pd.DataFrame, str, bool]:
     """
     Retorna (df, fonte_str, mudou).
-    Lê direto do arquivo sincronizado pelo OneDrive Desktop.
+    Tenta o arquivo local primeiro; se ausente, faz fallback para download do OneDrive.
     """
     global _cache_hash
 
     raw = _ler_local()
     fonte = "OneDrive (local sync)"
+
     if raw is None:
-        return pd.DataFrame(), f"Arquivo nao encontrado: {LOCAL_PATH}", False
+        log.warning(f"Arquivo local não encontrado ({LOCAL_PATH}), tentando download...")
+        raw = _baixar_onedrive()
+        fonte = "OneDrive (download direto)"
+
+    if raw is None:
+        return pd.DataFrame(), f"Arquivo não encontrado: {LOCAL_PATH}", False
 
     novo_hash = _hash_bytes(raw)
     mudou = novo_hash != _cache_hash
@@ -96,44 +108,6 @@ def carregar_dados() -> tuple[pd.DataFrame, str, bool]:
     df["Data"] = pd.to_datetime(df["Data"])
     df = df.sort_values("Data")
     return df, fonte, mudou
-
-
-# ─── LÓGICA DE NEGÓCIO ───────────────────────────────────────────────────────
-
-def calcular_variacao(df: pd.DataFrame) -> pd.DataFrame:
-    """Para cada item, retorna preço atual, anterior, variação % e variação R$."""
-    if df.empty:
-        return df
-
-    datas = sorted(df["Data"].unique())
-    data_atual = datas[-1]
-    data_ant = datas[-2] if len(datas) > 1 else None
-
-    atual = df[df["Data"] == data_atual][["Item", "Preco", "Unidade", "Grupo", "Fonte"]].copy()
-    atual.columns = ["Item", "Preco_Atual", "Unidade", "Grupo", "Fonte"]
-
-    if data_ant is not None:
-        ant = df[df["Data"] == data_ant][["Item", "Preco"]].copy()
-        ant.columns = ["Item", "Preco_Ant"]
-        result = atual.merge(ant, on="Item", how="left")
-    else:
-        result = atual.copy()
-        result["Preco_Ant"] = None
-
-    result["Var_Pct"] = (
-        (result["Preco_Atual"] - result["Preco_Ant"]) / result["Preco_Ant"] * 100
-    ).round(2)
-    result["Var_Abs"] = (result["Preco_Atual"] - result["Preco_Ant"]).round(2)
-    result["Data_Atual"] = data_atual
-    result["Data_Ant"] = data_ant
-    return result.sort_values(["Grupo", "Item"])
-
-
-def preco_por_kg(preco_mt: float, unidade: str) -> tuple[float, str]:
-    """Converte MT → kg (÷1000). Drum 300kg permanece como está."""
-    if unidade == "MT":
-        return round(preco_mt / 1000, 4), "kg"
-    return preco_mt, unidade
 
 
 # ─── COMPONENTES ─────────────────────────────────────────────────────────────
@@ -208,7 +182,6 @@ def card_produto(row: dict) -> html.Div:
 
 def grafico_grupo(df: pd.DataFrame, grupo: str) -> dcc.Graph:
     itens = df[df["Grupo"] == grupo]["Item"].unique()
-    cor_base = CORES["grupos"].get(grupo, CORES["accent"])
 
     fig = go.Figure()
 
@@ -490,4 +463,4 @@ def renderizar(json_data):
 # ─── ENTRY POINT ─────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    app.run(debug=False, host="0.0.0.0", port=8050)
+    app.run(debug=False, host="127.0.0.1", port=8050)

@@ -1,11 +1,10 @@
+import glob
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 from datetime import datetime
 import os
-import re
 import time
-import random
 import logging
 import shutil
 import pyodbc
@@ -13,12 +12,19 @@ from sqlalchemy import create_engine, text
 import urllib
 
 # --- Configurações --- #
-USER_WINDOWS_EXCEL_PATH = r"C:\Users\lsilva\OneDrive - Meridional TCS Ind e Com de Oleos S A\Arquivos\Python\importado\historico_precos_quimicos.xlsx"
+USER_WINDOWS_EXCEL_PATH = os.path.join(
+    os.path.expanduser("~"),
+    "OneDrive - Meridional TCS Ind e Com de Oleos S A",
+    "Arquivos", "Python", "importado",
+    "historico_precos_quimicos.xlsx",
+)
 LOG_FILENAME = "coleta_precos_v3.log"
 
+# Número máximo de backups do Excel a manter no diretório
+MAX_BACKUPS = 5
+
 # --- Configurações SQL Server --- #
-# Ajuste os valores abaixo conforme seu ambiente
-SQL_SERVER   = r"CORPORATIVOMTCS"   # ex: "localhost" ou "servidor\SQLEXPRESS"
+SQL_SERVER   = r"CORPORATIVOMTCS"
 SQL_DATABASE = "historico_precos_quimicos"
 SQL_TABLE    = "historico_precos_quimicos"
 # Autenticação Windows (Trusted Connection = True) — sem usuário/senha
@@ -87,7 +93,6 @@ ITEM_GROUPS = {
 
 # Mapeamento Industrial B2B (Foco em Tonelada ou Tambor)
 # Preços de referência (Benchmarks) baseados em pesquisa de mercado mar/2026
-# Estes são valores de exemplo e devem ser ajustados com dados reais de fornecedores ou APIs pagas
 INDUSTRIAL_BENCHMARKS = {
     "ACIDO BORICO": {"base_price_usd_mt": 950.0, "source": "IMARC/BusinessAnalytiq", "unit": "MT", "group": "Ácidos"},
     "ACIDO CAPRICO C10": {"base_price_usd_mt": 1800.0, "source": "Estimativa (Oleoquímico)", "unit": "MT", "group": "Ácidos"},
@@ -122,37 +127,38 @@ PALM_OIL_INDEX_ITEMS = [
 logging.basicConfig(filename=LOG_FILENAME, level=logging.INFO,
                     format="%(asctime)s - %(levelname)s - %(message)s")
 
-# --- Funções de Auxílio --- #
 
+# --- Funções de Auxílio --- #
 
 def get_palm_oil_price_index():
     """Busca o preço do Óleo de Palma no Trading Economics como indexador para oleoquímicos."""
+    FALLBACK = 4500.0
     url = "https://tradingeconomics.com/commodity/palm-oil"
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
     try:
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
         soup = BeautifulSoup(response.content, 'html.parser')
-        # Tenta encontrar o valor atual do preço do óleo de palma
-        # Ajustado para o HTML atual do Trading Economics
         price_elem = soup.find('td', class_='datatable-item-first')
         if price_elem:
             price_text = price_elem.get_text().strip().replace(',', '')
-            return float(price_text)  # Retorna o preço em MYR/MT
+            return float(price_text)
+        logging.warning("Seletor 'datatable-item-first' não encontrado na página. Usando fallback.")
     except requests.exceptions.RequestException as e:
-        logging.error(
-            f"Erro ao buscar preco do Oleo de Palma no Trading Economics: {e}")
+        logging.error(f"Erro ao buscar preco do Oleo de Palma no Trading Economics: {e}")
     except Exception as e:
-        logging.error(
-            f"Erro inesperado ao parsear preco do Oleo de Palma: {e}")
-    return 4500.0  # Fallback MYR/MT (valor de referência)
+        logging.error(f"Erro inesperado ao parsear preco do Oleo de Palma: {e}")
+
+    logging.warning(f"Usando valor fallback para Óleo de Palma: {FALLBACK} MYR/MT")
+    return FALLBACK
 
 
 def get_usd_brl_rate():
     """Busca a taxa de câmbio USD/BRL para conversão."""
+    FALLBACK = 5.10
     try:
-        # Usando uma API de câmbio gratuita e confiável
         response = requests.get(
             "https://api.exchangerate-api.com/v4/latest/USD", timeout=5)
         response.raise_for_status()
@@ -161,16 +167,17 @@ def get_usd_brl_rate():
         logging.error(f"Erro ao buscar taxa de cambio USD/BRL: {e}")
     except Exception as e:
         logging.error(f"Erro inesperado ao parsear taxa de cambio: {e}")
-    return 5.10  # Fallback
+
+    logging.warning(f"Usando valor fallback para USD/BRL: {FALLBACK}")
+    return FALLBACK
 
 
 def collect_industrial_prices():
     """Coleta preços baseados em índices industriais e benchmarks B2B."""
     usd_brl = get_usd_brl_rate()
-    palm_oil_current_price = get_palm_oil_price_index()  # Preço atual em MYR/MT
-    palm_oil_base_price = 4500.0  # Preço de referência para o índice
-    palm_index_factor = palm_oil_current_price / \
-        palm_oil_base_price  # Fator de variação
+    palm_oil_current_price = get_palm_oil_price_index()
+    palm_oil_base_price = 4500.0
+    palm_index_factor = palm_oil_current_price / palm_oil_base_price
 
     prices_data = []
     current_date = datetime.now().strftime("%Y-%m-%d")
@@ -182,7 +189,6 @@ def collect_industrial_prices():
         source = "Estimativa Industrial"
         group = ITEM_GROUPS.get(item, "Outros")
 
-        # Lógica de precificação industrial
         if item in INDUSTRIAL_BENCHMARKS:
             data = INDUSTRIAL_BENCHMARKS[item]
             if "base_price_usd_mt" in data:
@@ -190,16 +196,15 @@ def collect_industrial_prices():
                 currency = "USD"
                 unit = data["unit"]
                 if item in PALM_OIL_INDEX_ITEMS:
-                    price *= palm_index_factor  # Ajusta conforme o mercado global de oleoquímicos
+                    price *= palm_index_factor
             elif "base_price_brl_drum" in data:
-                price = data["base_price_brl_drum"] / usd_brl  # Converte BRL para USD
+                price = data["base_price_brl_drum"] / usd_brl
                 currency = "USD"
                 unit = data["unit"]
             source = data["source"]
             group = data["group"]
         else:
-            # Fallback para itens sem benchmark direto
-            price = 1500.0  # Estimativa base em USD
+            price = 1500.0
             currency = "USD"
             unit = DEFAULT_UNITS.get(item, "unidade")
             source = "Estimativa Generica"
@@ -214,7 +219,7 @@ def collect_industrial_prices():
             "Grupo": group,
             "Fonte": source
         })
-        time.sleep(random.uniform(1, 3))  # Pequeno delay aleatório
+        # Sem sleep: cálculo local, nenhuma requisição de rede neste loop
 
     return pd.DataFrame(prices_data)
 
@@ -311,69 +316,83 @@ def upsert_to_sqlserver(df: pd.DataFrame, engine):
     print(f"SQL Server: {rows_inserted} registros inseridos, {rows_skipped} já existiam.")
 
 
+def _limpar_backups_antigos(output_dir: str):
+    """Mantém apenas os últimos MAX_BACKUPS arquivos de backup no diretório."""
+    padrao = os.path.join(output_dir, "historico_precos_quimicos_backup_*.xlsx")
+    backups = sorted(glob.glob(padrao))
+    while len(backups) > MAX_BACKUPS:
+        antigo = backups.pop(0)
+        try:
+            os.remove(antigo)
+            logging.info(f"Backup antigo removido: {antigo}")
+        except Exception as e:
+            logging.warning(f"Não foi possível remover backup antigo {antigo}: {e}")
+
+
 # --- Lógica Principal --- #
 if __name__ == "__main__":
-    logging.info(
-        "Script de coleta de precos V3 (Foco Industrial B2B) iniciado.")
+    logging.info("Script de coleta de precos V3 (Foco Industrial B2B) iniciado.")
     print("Iniciando a coleta de preços industriais B2B (V3 - Robusto)...")
 
     df_new_prices = collect_industrial_prices()
 
     # Determina o caminho de saída com base no ambiente
-    if os.name == 'nt':  # Se o sistema operacional for Windows
+    if os.name == 'nt':
         output_excel_filename = USER_WINDOWS_EXCEL_PATH
         output_dir = os.path.dirname(output_excel_filename)
-    else:  # Para ambientes Linux (como o sandbox)
-        output_dir = "/home/ubuntu/temp_prices"  # Um diretório temporário no sandbox
-        output_excel_filename = os.path.join(
-            output_dir, "historico_precos_quimicos.xlsx")
-        print(
-            f"Aviso: Salvando localmente para teste no sandbox: {output_excel_filename}")
+    else:
+        output_dir = "/home/ubuntu/temp_prices"
+        output_excel_filename = os.path.join(output_dir, "historico_precos_quimicos.xlsx")
+        print(f"Aviso: Salvando localmente para teste no sandbox: {output_excel_filename}")
 
-    # Cria o diretório se não existir
     os.makedirs(output_dir, exist_ok=True)
 
     # --- Backup de Segurança --- #
-    backup_excel_filename = os.path.join(
-        output_dir, f"historico_precos_quimicos_backup_{datetime.now().strftime('%Y%m%d%H%M%S')}.xlsx")
     if os.path.exists(output_excel_filename):
+        backup_excel_filename = os.path.join(
+            output_dir,
+            f"historico_precos_quimicos_backup_{datetime.now().strftime('%Y%m%d')}.xlsx"
+        )
         try:
             shutil.copy2(output_excel_filename, backup_excel_filename)
-            logging.info(
-                f"Backup do arquivo Excel criado em: {backup_excel_filename}")
+            logging.info(f"Backup criado em: {backup_excel_filename}")
         except Exception as e:
             logging.error(f"Erro ao criar backup do Excel: {e}")
+
+        _limpar_backups_antigos(output_dir)
 
     # --- Leitura e Concatenação do Histórico --- #
     df_combined = pd.DataFrame()
     if os.path.exists(output_excel_filename):
         try:
             df_historical = pd.read_excel(output_excel_filename)
-            df_combined = pd.concat(
-                [df_historical, df_new_prices], ignore_index=True)
-            logging.info(
-                "Novos precos concatenados com o historico existente.")
+            df_combined = pd.concat([df_historical, df_new_prices], ignore_index=True)
+            logging.info("Novos precos concatenados com o historico existente.")
         except Exception as e:
             logging.error(
-                f"Erro ao ler ou concatenar historico existente: {e}. Criando novo arquivo com os dados de hoje.")
+                f"Erro ao ler ou concatenar historico existente: {e}. "
+                "Criando novo arquivo com os dados de hoje."
+            )
             df_combined = df_new_prices
     else:
         df_combined = df_new_prices
-        logging.info(
-            "Arquivo historico nao encontrado. Criando um novo com os dados de hoje.")
+        logging.info("Arquivo historico nao encontrado. Criando um novo com os dados de hoje.")
+
+    # Remove duplicatas mantendo o último registro de cada (Data, Item)
+    df_combined = df_combined.drop_duplicates(subset=["Data", "Item"], keep="last")
 
     # Salva o DataFrame combinado no arquivo Excel
     try:
         df_combined.to_excel(output_excel_filename, index=False)
-        logging.info(
-            f"Coleta concluida. Dados atualizados e salvos em {output_excel_filename}")
-        print(
-            f"\nColeta concluída. Dados atualizados e salvos em {output_excel_filename}")
+        logging.info(f"Coleta concluida. Dados salvos em {output_excel_filename}")
+        print(f"\nColeta concluída. Dados salvos em {output_excel_filename}")
         print(df_combined.tail(len(CHEMICAL_ITEMS)))
     except Exception as e:
         logging.error(f"Erro ao salvar o arquivo Excel: {e}")
         print(
-            f"\nERRO: Nao foi possivel salvar o arquivo Excel em {output_excel_filename}. Verifique permissoes ou se o arquivo esta aberto.")
+            f"\nERRO: Nao foi possivel salvar o arquivo Excel em {output_excel_filename}. "
+            "Verifique permissoes ou se o arquivo esta aberto."
+        )
 
     # --- Gravação no SQL Server --- #
     try:

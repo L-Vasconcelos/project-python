@@ -120,6 +120,8 @@ def _tentar_iniciar_streamlit() -> "subprocess.Popen | None":
     """
     Tenta iniciar o Streamlit uma vez.
     Retorna o processo se ficar online em até 120s, ou None.
+    O file handle do log é anexado ao processo como _log_handle para ser
+    fechado corretamente em encerrar_streamlit().
     """
     if not os.path.exists(CAMINHO_COMPLETO_DASHBOARD):
         log.error(f"Arquivo não encontrado: {CAMINHO_COMPLETO_DASHBOARD}")
@@ -146,6 +148,8 @@ def _tentar_iniciar_streamlit() -> "subprocess.Popen | None":
         stdout=arquivo_log_streamlit,
         stderr=arquivo_log_streamlit,
     )
+    # Armazena o handle para fechamento garantido em encerrar_streamlit()
+    processo._log_handle = arquivo_log_streamlit
 
     log.info("Aguardando servidor Streamlit ficar online (máx. 120s)...")
     inicio = time.time()
@@ -271,13 +275,13 @@ def tirar_print_validado() -> bytes | None:
         # ---------------------------------------------------------------
         # Screenshot — aguarda estabilização visual
         # ---------------------------------------------------------------
-        time.sleep(4)
+        time.sleep(4)  # aguarda renderização final de fontes e gráficos
 
         driver.execute_script(
             "window.scrollTo(0, document.body.scrollHeight);")
-        time.sleep(2)
+        time.sleep(2)  # aguarda lazy-render do conteúdo inferior
         driver.execute_script("window.scrollTo(0, 0);")
-        time.sleep(1)
+        time.sleep(1)  # aguarda reposicionamento do scroll
 
         img_binaria = driver.get_screenshot_as_png()
         log.info("Screenshot capturado com sucesso")
@@ -392,6 +396,14 @@ def encerrar_streamlit(processo):
         log.info("Streamlit encerrado")
     except Exception as e:
         log.warning(f"Aviso ao encerrar Streamlit: {e}")
+    finally:
+        # Fecha o file handle do log do Streamlit aberto em _tentar_iniciar_streamlit()
+        log_handle = getattr(processo, "_log_handle", None)
+        if log_handle:
+            try:
+                log_handle.close()
+            except Exception:
+                pass
 
 
 # ---------------------------------------------------------------------------
