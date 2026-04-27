@@ -45,6 +45,14 @@ def formatar_data_br(data_iso):
         return data_iso
 
 
+# Cache do geolocator — evita recriar instância a cada chamada
+@st.cache_resource
+def get_geolocator():
+    return Nominatim(user_agent="meridional_tracker_v7_cloud")
+
+
+# Cache do JSON de cache local — evita releitura do disco a cada rerun
+@st.cache_data(ttl=300)
 def carregar_cache():
     if os.path.exists(ARQUIVO_CACHE):
         try:
@@ -62,7 +70,7 @@ def salvar_cache(dados):
 
 @st.cache_data(ttl=86400)
 def buscar_coordenadas(nome):
-    geolocator = Nominatim(user_agent="meridional_tracker_v7_cloud")
+    geolocator = get_geolocator()
     try:
         nome_limpo = nome.split('(')[0].strip()
         location = geolocator.geocode(nome_limpo, timeout=10)
@@ -90,23 +98,37 @@ def consultar_hlag(booking, cache):
             dados = response.json()
             cache[str(booking)] = {
                 'dados': dados, 'timestamp': agora.strftime('%Y-%m-%d %H:%M:%S')}
-            salvar_cache(cache)
             return dados, True, "✅ Ativo"
         return None, False, f"Erro {response.status_code}"
     except:
         return None, False, "Erro Conexão"
 
-# --- BUSCA INTELIGENTE DA PLANILHA ---
+
+# Movida para fora do loop — sem custo de redefinição por iteração
+def extract(ev):
+    loc = ev.get('eventLocation') or ev.get(
+        'transportCall', {}).get('location') or {}
+    st_trad = MAPA_STATUS.get(
+        ev.get('shipmentEventTypeCode'), ev.get('eventType', '---'))
+    return loc.get('locationName', 'Em Trânsito'), st_trad
 
 
+# Cache da leitura do Excel — evita re-parse a cada rerun
+@st.cache_data(ttl=300)
+def ler_planilha(caminho):
+    df = pd.read_excel(caminho)
+    df.columns = df.columns.str.strip()
+    return df
+
+
+# Cache da busca de planilha — evita varredura do filesystem a cada rerun
+@st.cache_data(ttl=60)
 def localizar_planilha():
-    # 1. Tenta na raiz do projeto
     arquivos_raiz = [f for f in os.listdir(
         '.') if 'booking' in f.lower() and f.endswith('.xlsx')]
     if arquivos_raiz:
         return arquivos_raiz[0]
 
-    # 2. Tenta dentro da pasta 'hapag_Lloyd' (visto no seu print)
     pasta_alvo = 'hapag_Lloyd'
     if os.path.exists(pasta_alvo):
         arquivos_pasta = [os.path.join(pasta_alvo, f) for f in os.listdir(pasta_alvo)
@@ -148,10 +170,8 @@ if refresh_ativo:
 # --- PROCESSAMENTO ---
 if CAMINHO_PLANILHA:
     try:
-        df_base = pd.read_excel(CAMINHO_PLANILHA)
-        df_base.columns = df_base.columns.str.strip()
+        df_base = ler_planilha(CAMINHO_PLANILHA)
 
-        # Busca flexível pela coluna de booking
         colunas_possiveis = [
             c for c in df_base.columns if 'booking' in c.lower()]
         if not colunas_possiveis:
@@ -163,10 +183,16 @@ if CAMINHO_PLANILHA:
 
         dados_tabela = []
         cache_local = carregar_cache()
+        cache_alterado = False
         progresso = st.progress(0)
 
         for i, b in enumerate(lista_bookings):
             json_api, sucesso, msg = consultar_hlag(b, cache_local)
+
+            # Salva cache apenas se houve nova requisição à API
+            if sucesso and "Ativo" in msg:
+                cache_alterado = True
+
             item = {
                 "Booking": str(b), "Container": "---", "Status": msg,
                 "Origem": "---", "Transporte": "---", "Viagem": "---", "IMO": "---",
@@ -190,13 +216,6 @@ if CAMINHO_PLANILHA:
                         item["Container"] = ev['equipmentReference']
 
                 if eventos:
-                    def extract(ev):
-                        loc = ev.get('eventLocation') or ev.get(
-                            'transportCall', {}).get('location') or {}
-                        st_trad = MAPA_STATUS.get(
-                            ev.get('shipmentEventTypeCode'), ev.get('eventType', '---'))
-                        return loc.get('locationName', 'Em Trânsito'), st_trad
-
                     item["Origem"], _ = extract(eventos[0])
                     item["Destino"], _ = extract(eventos[-1])
                     item["Saída"] = formatar_data_br(
@@ -222,14 +241,18 @@ if CAMINHO_PLANILHA:
             if "Ativo" in msg:
                 time.sleep(1.2)
 
+        # Grava o cache uma única vez após o loop, apenas se necessário
+        if cache_alterado:
+            salvar_cache(cache_local)
+
         progresso.empty()
         df_final = pd.DataFrame(dados_tabela)
+        df_display = df_final.drop(columns=['lat_o', 'lon_o', 'lat_d', 'lon_d'])
 
         # Download do Excel para uso no SharePoint local
         with container_download:
             buffer = io.BytesIO()
-            df_final.drop(columns=['lat_o', 'lon_o', 'lat_d', 'lon_d']).to_excel(
-                buffer, index=False)
+            df_display.to_excel(buffer, index=False)
             st.download_button(
                 label="📥 Baixar Excel",
                 data=buffer.getvalue(),
@@ -251,8 +274,7 @@ if CAMINHO_PLANILHA:
 
         # --- TABELA ---
         st.subheader("📋 Relatório Completo")
-        st.dataframe(df_final.drop(columns=[
-                     'lat_o', 'lon_o', 'lat_d', 'lon_d']), use_container_width=True, hide_index=True)
+        st.dataframe(df_display, use_container_width=True, hide_index=True)
 
     except Exception as e:
         st.error(f"Erro no processamento: {e}")

@@ -5,8 +5,8 @@ import time
 
 # --- CONFIGURAÇÕES ---
 # Agora o Python busca os valores nas Variáveis de Ambiente do Windows
-CLIENT_ID = os.getenv('client_id')      
-CLIENT_SECRET = os.getenv('client_secret') 
+CLIENT_ID = os.getenv('client_id')
+CLIENT_SECRET = os.getenv('client_secret')
 
 # Verifica se carregou corretamente (para te avisar se der erro)
 if not CLIENT_ID or not CLIENT_SECRET:
@@ -16,6 +16,7 @@ if not CLIENT_ID or not CLIENT_SECRET:
 # Caminho baseado na estrutura do seu SharePoint sincronizado no Windows
 CAMINHO_PLANILHA = r"C:\Users\lsilva\Meridional TCS Ind e Com de Oleos S A\Banco de Dados - booking list\booking _list.xlsx"
 ARQUIVO_SAIDA = r"C:\Users\lsilva\OneDrive\Arquivos\Python\API RESTful\resultado_rastreamento.xlsx"
+
 
 def processar_rastreamento():
     # 1. Verificação de existência do arquivo
@@ -51,6 +52,7 @@ def processar_rastreamento():
 
     except Exception as e:
         print(f"Erro ao processar: {e}")
+
 
 if __name__ == "__main__":
     processar_rastreamento()
