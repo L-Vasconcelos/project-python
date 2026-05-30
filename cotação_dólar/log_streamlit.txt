@@ -3,28 +3,28 @@
 
   URL: http://127.0.0.1:8501
 
-c:\Users\lsilva\OneDrive\Arquivos\Python\cotação_dólar\enviar_relatorio_dolar.py:77: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+C:\Users\lsilva\OneDrive\Arquivos\Python\cotação_dólar\enviar_relatorio_dolar.py:77: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
   df = pd.read_sql(query, conn)
-2026-05-15 09:20:39.404 Please replace `use_container_width` with `width`.
+2026-05-29 08:51:05.097 Please replace `use_container_width` with `width`.
 
 `use_container_width` will be removed after 2025-12-31.
 
 For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
-2026-05-15 09:20:42.597 Please replace `use_container_width` with `width`.
+2026-05-29 08:51:08.972 Please replace `use_container_width` with `width`.
 
 `use_container_width` will be removed after 2025-12-31.
 
 For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
-c:\Users\lsilva\OneDrive\Arquivos\Python\cotação_dólar\enviar_relatorio_dolar.py:77: UserWarning:
+C:\Users\lsilva\OneDrive\Arquivos\Python\cotação_dólar\enviar_relatorio_dolar.py:77: UserWarning:
 
 pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
 
-2026-05-15 09:20:42.776 Please replace `use_container_width` with `width`.
+2026-05-29 08:51:09.097 Please replace `use_container_width` with `width`.
 
 `use_container_width` will be removed after 2025-12-31.
 
 For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
-2026-05-15 09:20:42.929 Please replace `use_container_width` with `width`.
+2026-05-29 08:51:09.185 Please replace `use_container_width` with `width`.
 
 `use_container_width` will be removed after 2025-12-31.
 
